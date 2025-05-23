@@ -1,0 +1,5 @@
+# Google Gemini API Key
+# Replace the text below with your actual API key from https://ai.google.dev/
+# After adding your key, rename this file to .env
+
+GEMINI_API_KEY=your_api_key_here 
