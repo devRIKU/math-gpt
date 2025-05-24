@@ -6,15 +6,17 @@
 [build.environment]
   NODE_VERSION = "18"
 
-# Redirect all requests to index.html for client-side routing
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-
-# Proxy API requests to the backend
+# Proxy API requests to the backend (must come before the catch-all redirect)
 [[redirects]]
   from = "/api/*"
   to = "https://math-gpt.onrender.com/:splat"
   status = 200
-  force = true 
+  force = true
+  conditions = {Path = ["/api/*"]}
+
+# Redirect all other requests to index.html for client-side routing
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  conditions = {Path = ["!^/api/*"]} 
