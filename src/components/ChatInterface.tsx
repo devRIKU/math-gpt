@@ -168,28 +168,19 @@ const loadChatHistory = (userName: string): Message[] => {
   }
 };
 
-interface CodeProps extends HTMLAttributes<HTMLElement> {
-  node?: any;
+// Update the component prop types to match react-markdown's expected types
+type CodeComponentProps = ComponentPropsWithoutRef<'code'> & {
   inline?: boolean;
   className?: string;
-  children: React.ReactNode;
-}
+};
 
-interface ParagraphProps extends HTMLAttributes<HTMLParagraphElement> {
-  children: React.ReactNode;
-}
-
-interface ListProps extends HTMLAttributes<HTMLUListElement> {
-  children: React.ReactNode;
-}
-
-interface OrderedListProps extends HTMLAttributes<HTMLOListElement> {
-  children: React.ReactNode;
-}
+type ParagraphComponentProps = ComponentPropsWithoutRef<'p'>;
+type ListComponentProps = ComponentPropsWithoutRef<'ul'>;
+type OrderedListComponentProps = ComponentPropsWithoutRef<'ol'>;
 
 const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: React.MouseEvent) => void, isStepByStep: boolean): Components => {
   return useMemo(() => ({
-    code: ({ node, inline, className, children, ...props }: CodeProps) => {
+    code: ({ node, inline, className, children, ...props }: CodeComponentProps) => {
       const match = /language-(\w+)/.exec(className || '');
       const language = match ? match[1] : '';
       const code = String(children).replace(/\n$/, '');
@@ -270,7 +261,7 @@ const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: 
         </Box>
       );
     },
-    p: ({ children, ...props }: ParagraphProps) => {
+    p: ({ children, ...props }: ParagraphComponentProps) => {
       const content = String(children);
       // Check if the paragraph contains a math equation
       if (content.includes('$') || content.includes('\\[') || content.includes('\\(')) {
@@ -326,7 +317,7 @@ const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: 
         </Typography>
       );
     },
-    ul: ({ children, ...props }: ListProps) => (
+    ul: ({ children, ...props }: ListComponentProps) => (
       <Box
         component="ul"
         sx={{
@@ -342,7 +333,7 @@ const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: 
         {children}
       </Box>
     ),
-    ol: ({ children, ...props }: OrderedListProps) => (
+    ol: ({ children, ...props }: OrderedListComponentProps) => (
       <Box
         component="ol"
         sx={{
