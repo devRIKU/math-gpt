@@ -229,7 +229,7 @@ const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: 
               mb: 1,
               backgroundColor: theme.palette.mode === 'dark' ? '#1E1E1E' : '#F5F5F5',
               borderRadius: 1,
-              overflow: 'auto',
+              overflowX: 'auto',  // changed from overflow: 'auto'
               '& pre': {
                 margin: 0,
                 padding: 0,
@@ -490,7 +490,7 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
   const [showNewChatDialog, setShowNewChatDialog] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [currentTopic, setCurrentTopic] = useState<string>('default');
-  const [expandedCategory, setExpandedCategory] = useState<string | null>('other');
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const theme = useTheme();
 
@@ -1180,4 +1180,4 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
       </Box>
     </ErrorBoundary>
   );
-} 
+}
