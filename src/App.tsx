@@ -1,4 +1,3 @@
-import React from 'react';
 import { useState } from 'react';
 import { 
   ThemeProvider, 
@@ -13,7 +12,6 @@ import {
   Typography,
   IconButton,
   Fab,
-  useTheme as useMuiTheme,
 } from '@mui/material';
 import { 
   Add as AddIcon,
@@ -25,7 +23,6 @@ import ChatInterface from './components/ChatInterface';
 function App() {
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
   const [mode, setMode] = useState<'light' | 'dark'>(prefersDarkMode ? 'dark' : 'light');
-  const muiTheme = useMuiTheme();
 
   const theme = createTheme({
     palette: {

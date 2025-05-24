@@ -169,7 +169,7 @@ export default function ChatInterface() {
                 ) : (
                   <ReactMarkdown
                     components={{
-                      code({ node, inline, className, children, ...props }) {
+                      code({ inline, className, children, ...props }: any) {
                         return (
                           <code
                             className={className}
