@@ -382,6 +382,55 @@ const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: 
   }), [theme, handleCopy, isStepByStep]);
 };
 
+// Add ErrorBoundary component at the top of the file after imports
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('Error in component:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Box
+          sx={{
+            p: 3,
+            textAlign: 'center',
+            color: 'error.main',
+          }}
+        >
+          <Typography variant="h6" gutterBottom>
+            Something went wrong
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Please try refreshing the page
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => window.location.reload()}
+            sx={{ mt: 2 }}
+          >
+            Refresh Page
+          </Button>
+        </Box>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 export default function ChatInterface({ userName, onNewChat, onMessageCountChange }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>(() => loadChatHistory(userName));
   const [input, setInput] = useState('');
@@ -470,14 +519,24 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
       content: input.trim(),
       sender: 'user',
       timestamp: new Date(),
+      topicId: currentTopic,
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setIsLoading(true);
-    setIsTyping(true);
-
     try {
+      setInput('');
+      setIsLoading(true);
+      setIsTyping(true);
+      
+      // Update messages state safely
+      setMessages(prev => {
+        try {
+          return [...prev, userMessage];
+        } catch (error) {
+          console.error('Error updating messages state:', error);
+          return prev;
+        }
+      });
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -485,7 +544,8 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
         },
         body: JSON.stringify({ 
           prompt: input.trim(),
-          include_history: true
+          include_history: true,
+          topicId: currentTopic
         }),
       });
 
@@ -501,9 +561,18 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
         content: data.response || 'Sorry, I encountered an error processing your request.',
         sender: 'ai',
         timestamp: new Date(),
+        topicId: currentTopic,
       };
 
-      setMessages(prev => [...prev, aiMessage]);
+      // Update messages state safely
+      setMessages(prev => {
+        try {
+          return [...prev, aiMessage];
+        } catch (error) {
+          console.error('Error updating messages state:', error);
+          return prev;
+        }
+      });
     } catch (error) {
       console.error('Error sending message:', error);
       
@@ -512,9 +581,18 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
         content: error instanceof Error ? error.message : 'Sorry, I encountered an error. Please try again.',
         sender: 'ai',
         timestamp: new Date(),
+        topicId: currentTopic,
       };
 
-      setMessages(prev => [...prev, errorMessage]);
+      // Update messages state safely
+      setMessages(prev => {
+        try {
+          return [...prev, errorMessage];
+        } catch (error) {
+          console.error('Error updating messages state:', error);
+          return prev;
+        }
+      });
     } finally {
       setIsLoading(false);
       setIsTyping(false);
@@ -527,160 +605,221 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
   };
 
   const renderMessageContent = (message: Message) => {
-    if (message.sender === 'user') {
-      return (
-        <Typography
-          variant="body1"
-          sx={{
-            color: 'white',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-          }}
-        >
-          {message.content}
-        </Typography>
-      );
-    }
+    try {
+      if (message.sender === 'user') {
+        return (
+          <Typography
+            variant="body1"
+            sx={{
+              color: 'white',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}
+          >
+            {message.content}
+          </Typography>
+        );
+      }
 
-    // Special styling for welcome message
-    if (message.id === 'welcome') {
-      const markdownComponents: Components = {
-        ...useMarkdownComponents(theme, handleCopy, false),
-        h1: function Heading1(props: MarkdownHeadingProps) {
-          const { children, className, ...rest } = props;
-          return (
-            <Typography
-              component="h1"
-              variant="h3"
-              className={className}
-              {...rest}
-              sx={{
-                fontWeight: 600,
-                mb: 3,
-                background: 'linear-gradient(45deg, #6750A4 30%, #625B71 90%)',
-                backgroundClip: 'text',
-                WebkitBackgroundClip: 'text',
-                color: 'transparent',
-                fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
-              }}
-            >
-              {children}
-            </Typography>
-          );
-        },
-        h2: function Heading2(props: MarkdownHeadingProps) {
-          const { children, className, ...rest } = props;
-          return (
-            <Typography
-              component="h2"
-              variant="h5"
-              className={className}
-              {...rest}
-              sx={{
-                fontWeight: 500,
-                mb: 2,
-                color: 'text.secondary',
-                fontSize: { xs: '1.1rem', sm: '1.25rem' },
-              }}
-            >
-              {children}
-            </Typography>
-          );
-        },
-        p: function Paragraph(props: MarkdownParagraphProps) {
-          const { children, className, ...rest } = props;
-          return (
-            <Typography
-              component="p"
-              variant="body1"
-              className={className}
-              {...rest}
-              sx={{
-                color: 'text.secondary',
-                mb: 2,
-                fontSize: { xs: '1rem', sm: '1.1rem' },
-                maxWidth: '600px',
-              }}
-            >
-              {children}
-            </Typography>
-          );
-        },
-        ul: function UnorderedList(props: MarkdownListProps) {
-          const { children, className, ...rest } = props;
-          return (
+      // Special styling for welcome message
+      if (message.id === 'welcome') {
+        const markdownComponents: Components = {
+          ...useMarkdownComponents(theme, handleCopy, false),
+          h1: function Heading1(props: MarkdownHeadingProps) {
+            const { children, className, ...rest } = props;
+            return (
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  mb: 4,
+                  position: 'relative',
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: { xs: '200px', sm: '300px' },
+                    height: { xs: '200px', sm: '300px' },
+                    background: 'radial-gradient(circle, rgba(103, 80, 164, 0.15) 0%, rgba(98, 91, 113, 0.1) 100%)',
+                    borderRadius: '50%',
+                    filter: 'blur(40px)',
+                    zIndex: 0,
+                  },
+                }}
+              >
+                <Typography
+                  component="h1"
+                  variant="h3"
+                  className={className}
+                  {...rest}
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: { xs: '2.5rem', sm: '3.5rem', md: '4rem' },
+                    background: 'linear-gradient(135deg, #6750A4 0%, #625B71 50%, #6750A4 100%)',
+                    backgroundSize: '200% auto',
+                    backgroundClip: 'text',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    animation: 'gradient 8s ease infinite',
+                    position: 'relative',
+                    zIndex: 1,
+                    '@keyframes gradient': {
+                      '0%': { backgroundPosition: '0% 50%' },
+                      '50%': { backgroundPosition: '100% 50%' },
+                      '100%': { backgroundPosition: '0% 50%' },
+                    },
+                  }}
+                >
+                  {children}
+                </Typography>
+              </Box>
+            );
+          },
+          h2: function Heading2(props: MarkdownHeadingProps) {
+            const { children, className, ...rest } = props;
+            return (
+              <Typography
+                component="h2"
+                variant="h5"
+                className={className}
+                {...rest}
+                sx={{
+                  fontWeight: 600,
+                  mb: 3,
+                  fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                  textAlign: 'center',
+                  background: 'linear-gradient(45deg, #6750A4 30%, #625B71 90%)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
+                {children}
+              </Typography>
+            );
+          },
+          ul: function UnorderedList(props: MarkdownListProps) {
+            const { children, className, ...rest } = props;
+            return (
+              <Box
+                component="ul"
+                className={className}
+                {...rest}
+                sx={{
+                  listStyle: 'none',
+                  p: 0,
+                  m: 0,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
+                  maxWidth: '600px',
+                  mx: 'auto',
+                  '& li': {
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    color: 'text.secondary',
+                    fontSize: { xs: '1rem', sm: '1.1rem' },
+                    justifyContent: 'center',
+                    '&::before': {
+                      content: '"•"',
+                      fontSize: '1.5rem',
+                      background: 'linear-gradient(45deg, #6750A4 30%, #625B71 90%)',
+                      backgroundClip: 'text',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                    },
+                  },
+                }}
+              >
+                {children}
+              </Box>
+            );
+          },
+        };
+
+        return (
+          <ErrorBoundary>
             <Box
-              component="ul"
-              className={className}
-              {...rest}
               sx={{
-                listStyle: 'none',
-                p: 0,
-                m: 0,
                 display: 'flex',
                 flexDirection: 'column',
-                gap: 2,
-                maxWidth: '600px',
-                '& li': {
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  color: 'text.secondary',
-                  fontSize: { xs: '1rem', sm: '1.1rem' },
-                  '&::before': {
-                    content: '"•"',
-                    color: 'primary.main',
-                    fontSize: '1.5rem',
-                  },
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: { xs: '60vh', sm: '70vh' },
+                width: '100%',
+                py: 4,
+                px: 2,
+                position: 'relative',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: theme.palette.mode === 'dark'
+                    ? 'radial-gradient(circle at center, rgba(103, 80, 164, 0.1) 0%, rgba(98, 91, 113, 0.05) 100%)'
+                    : 'radial-gradient(circle at center, rgba(103, 80, 164, 0.05) 0%, rgba(98, 91, 113, 0.02) 100%)',
+                  zIndex: 0,
                 },
               }}
             >
-              {children}
+              <Box
+                sx={{
+                  position: 'relative',
+                  zIndex: 1,
+                  width: '100%',
+                  maxWidth: '800px',
+                  mx: 'auto',
+                }}
+              >
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm, remarkMath]}
+                  rehypePlugins={[rehypeRaw, rehypeHighlight, rehypeKatex]}
+                  components={markdownComponents}
+                >
+                  {message.content}
+                </ReactMarkdown>
+              </Box>
             </Box>
-          );
-        },
-      };
+          </ErrorBoundary>
+        );
+      }
+
+      const isStepByStepMessage = message.content.includes('step-by-step solution') || 
+                                 message.content.includes('Here\'s the step-by-step solution');
+
+      const components = useMarkdownComponents(theme, handleCopy, isStepByStepMessage);
 
       return (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            maxWidth: '800px',
-            mx: 'auto',
-            py: 4,
-            px: 2,
-          }}
-        >
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath]}
-            rehypePlugins={[rehypeRaw, rehypeHighlight, rehypeKatex]}
-            components={markdownComponents}
-          >
-            {message.content}
-          </ReactMarkdown>
+        <ErrorBoundary>
+          <Box sx={{ position: 'relative' }}>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[rehypeRaw, rehypeHighlight, rehypeKatex]}
+              components={components}
+            >
+              {message.content}
+            </ReactMarkdown>
+          </Box>
+        </ErrorBoundary>
+      );
+    } catch (error) {
+      console.error('Error rendering message:', error);
+      return (
+        <Box sx={{ p: 2, color: 'error.main' }}>
+          <Typography variant="body1">
+            Error displaying message. Please try again.
+          </Typography>
         </Box>
       );
     }
-
-    const isStepByStepMessage = message.content.includes('step-by-step solution') || 
-                               message.content.includes('Here\'s the step-by-step solution');
-
-    const components = useMarkdownComponents(theme, handleCopy, isStepByStepMessage);
-
-    return (
-      <Box sx={{ position: 'relative' }}>
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkMath]}
-          rehypePlugins={[rehypeRaw, rehypeHighlight, rehypeKatex]}
-          components={components}
-        >
-          {message.content}
-        </ReactMarkdown>
-      </Box>
-    );
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -900,239 +1039,241 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
   );
 
   return (
-    <Box sx={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100vh',
-      bgcolor: 'background.default',
-      position: 'relative',
-      overflow: 'hidden',
-    }}>
-      {/* Header */}
+    <ErrorBoundary>
       <Box sx={{
-        p: { xs: 1, sm: 2 },
-        borderBottom: 1,
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
-        display: 'flex',
-        flexDirection: { xs: 'column', sm: 'row' },
-        justifyContent: 'space-between',
-        alignItems: { xs: 'flex-start', sm: 'center' },
-        gap: { xs: 1, sm: 0 },
-        position: 'sticky',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 2,
-      }}>
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: 2,
-          width: { xs: '100%', sm: 'auto' }
-        }}>
-          <IconButton
-            onClick={() => setIsDrawerOpen(true)}
-            sx={{ color: 'text.primary' }}
-          >
-            <SchoolIcon />
-          </IconButton>
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              {topics.find(t => t.id === currentTopic)?.name || 'Math GPT'}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
-              {TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].description}
-            </Typography>
-          </Box>
-          <Chip
-            label={TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].label}
-            size="small"
-            icon={TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].icon}
-            sx={{ 
-              ml: 1,
-              bgcolor: alpha(TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].color, 0.1),
-              color: TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].color,
-              '& .MuiChip-icon': {
-                color: 'inherit',
-              },
-            }}
-          />
-        </Box>
-        <Button
-          variant="outlined"
-          startIcon={<AddIcon />}
-          onClick={handleNewChat}
-          sx={{
-            borderRadius: 2,
-            textTransform: 'none',
-            width: { xs: '100%', sm: 'auto' }
-          }}
-        >
-          New Chat
-        </Button>
-      </Box>
-
-      {renderSidebar()}
-
-      {/* Chat container */}
-      <Box sx={{
-        flexGrow: 1,
         display: 'flex',
         flexDirection: 'column',
-        gap: 2,
-        overflowY: 'auto',
-        p: { xs: 1, sm: 2 },
-        pb: { xs: 7, sm: 8 },
+        height: '100vh',
+        bgcolor: 'background.default',
+        position: 'relative',
+        overflow: 'hidden',
       }}>
-        {messages.map((message) => (
-          <Fade in={true} key={message.id}>
-            <Box sx={{
-              display: 'flex',
-              justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
-              gap: 1,
-              width: '100%',
-            }}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: { xs: 1.5, sm: 2 },
-                  maxWidth: { xs: '90%', sm: '80%' },
-                  borderRadius: 2,
-                  position: 'relative',
-                  background: message.sender === 'user'
-                    ? 'linear-gradient(45deg, #6750A4 30%, #625B71 90%)'
-                    : theme.palette.mode === 'dark'
-                      ? 'linear-gradient(145deg, #2D2B32 0%, #1C1B1F 100%)'
-                      : 'linear-gradient(145deg, #F5F5F5 0%, #FFFFFF 100%)',
-                  border: `1px solid ${theme.palette.divider}`,
-                  whiteSpace: 'pre-wrap',
-                }}
-              >
-                {renderMessageContent(message)}
-              </Paper>
-            </Box>
-          </Fade>
-        ))}
-        {isTyping && (
-          <Fade in={true}>
-            <Box sx={{ alignSelf: 'flex-start' }}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 0,
-                  borderRadius: 2,
-                  background: theme.palette.mode === 'dark'
-                    ? 'linear-gradient(145deg, #2D2B32 0%, #1C1B1F 100%)'
-                    : 'linear-gradient(145deg, #F5F5F5 0%, #FFFFFF 100%)',
-                  border: `1px solid ${theme.palette.divider}`,
-                }}
-              >
-                <TypingIndicator />
-              </Paper>
-            </Box>
-          </Fade>
-        )}
-        <div ref={messagesEndRef} />
-      </Box>
-
-      {/* Input box */}
-      <Box
-        component="form"
-        onSubmit={handleSubmit}
-        sx={{
+        {/* Header */}
+        <Box sx={{
           p: { xs: 1, sm: 2 },
-          borderTop: 1,
+          borderBottom: 1,
           borderColor: 'divider',
           bgcolor: 'background.paper',
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          gap: { xs: 1, sm: 0 },
           position: 'sticky',
-          bottom: 0,
+          top: 0,
           left: 0,
           right: 0,
-          zIndex: 1,
-        }}
-      >
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-          <Box sx={{ display: 'flex', gap: 1, flexGrow: 1, alignItems: 'flex-start' }}>
-            <TextField
-              fullWidth
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
-              variant="outlined"
-              disabled={isLoading}
-              multiline
-              maxRows={4}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
+          zIndex: 2,
+        }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2,
+            width: { xs: '100%', sm: 'auto' }
+          }}>
+            <IconButton
+              onClick={() => setIsDrawerOpen(true)}
+              sx={{ color: 'text.primary' }}
+            >
+              <SchoolIcon />
+            </IconButton>
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                {topics.find(t => t.id === currentTopic)?.name || 'Math GPT'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
+                {TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].description}
+              </Typography>
+            </Box>
+            <Chip
+              label={TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].label}
+              size="small"
+              icon={TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].icon}
+              sx={{ 
+                ml: 1,
+                bgcolor: alpha(TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].color, 0.1),
+                color: TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].color,
+                '& .MuiChip-icon': {
+                  color: 'inherit',
                 },
               }}
             />
-            <IconButton
-              type="submit"
-              color="primary"
-              disabled={!input.trim() || isLoading}
-              sx={{
-                borderRadius: 2,
-                height: 40,
-                width: 40,
-                mt: 0.5,
-                '&:hover': {
-                  transform: 'scale(1.1)',
-                },
-              }}
-            >
-              {isLoading ? <CircularProgress size={20} /> : <SendIcon />}
-            </IconButton>
           </Box>
-          <Tooltip title="Math equation help">
-            <IconButton
-              onClick={() => {
-                const helpText = `Math equation help:
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={handleNewChat}
+            sx={{
+              borderRadius: 2,
+              textTransform: 'none',
+              width: { xs: '100%', sm: 'auto' }
+            }}
+          >
+            New Chat
+          </Button>
+        </Box>
+
+        {renderSidebar()}
+
+        {/* Chat container */}
+        <Box sx={{
+          flexGrow: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          overflowY: 'auto',
+          p: { xs: 1, sm: 2 },
+          pb: { xs: 7, sm: 8 },
+        }}>
+          {messages.map((message) => (
+            <Fade in={true} key={message.id}>
+              <Box sx={{
+                display: 'flex',
+                justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
+                gap: 1,
+                width: '100%',
+              }}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 1.5, sm: 2 },
+                    maxWidth: { xs: '90%', sm: '80%' },
+                    borderRadius: 2,
+                    position: 'relative',
+                    background: message.sender === 'user'
+                      ? 'linear-gradient(45deg, #6750A4 30%, #625B71 90%)'
+                      : theme.palette.mode === 'dark'
+                        ? 'linear-gradient(145deg, #2D2B32 0%, #1C1B1F 100%)'
+                        : 'linear-gradient(145deg, #F5F5F5 0%, #FFFFFF 100%)',
+                    border: `1px solid ${theme.palette.divider}`,
+                    whiteSpace: 'pre-wrap',
+                  }}
+                >
+                  {renderMessageContent(message)}
+                </Paper>
+              </Box>
+            </Fade>
+          ))}
+          {isTyping && (
+            <Fade in={true}>
+              <Box sx={{ alignSelf: 'flex-start' }}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 0,
+                    borderRadius: 2,
+                    background: theme.palette.mode === 'dark'
+                      ? 'linear-gradient(145deg, #2D2B32 0%, #1C1B1F 100%)'
+                      : 'linear-gradient(145deg, #F5F5F5 0%, #FFFFFF 100%)',
+                    border: `1px solid ${theme.palette.divider}`,
+                  }}
+                >
+                  <TypingIndicator />
+                </Paper>
+              </Box>
+            </Fade>
+          )}
+          <div ref={messagesEndRef} />
+        </Box>
+
+        {/* Input box */}
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          sx={{
+            p: { xs: 1, sm: 2 },
+            borderTop: 1,
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+            position: 'sticky',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1,
+          }}
+        >
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+            <Box sx={{ display: 'flex', gap: 1, flexGrow: 1, alignItems: 'flex-start' }}>
+              <TextField
+                fullWidth
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
+                variant="outlined"
+                disabled={isLoading}
+                multiline
+                maxRows={4}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                  },
+                }}
+              />
+              <IconButton
+                type="submit"
+                color="primary"
+                disabled={!input.trim() || isLoading}
+                sx={{
+                  borderRadius: 2,
+                  height: 40,
+                  width: 40,
+                  mt: 0.5,
+                  '&:hover': {
+                    transform: 'scale(1.1)',
+                  },
+                }}
+              >
+                {isLoading ? <CircularProgress size={20} /> : <SendIcon />}
+              </IconButton>
+            </Box>
+            <Tooltip title="Math equation help">
+              <IconButton
+                onClick={() => {
+                  const helpText = `Math equation help:
 • Inline math: $x^2 + y^2 = z^2$
 • Display math: $$\\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$$
 • Common symbols: \\alpha, \\beta, \\pi, \\infty
 • Fractions: \\frac{a}{b}
 • Powers: x^2, x^{n+1}
 • Subscripts: x_1, x_{i,j}`;
-                setInput(prev => prev + '\n\n' + helpText);
-              }}
-              sx={{
-                height: 40,
-                width: 40,
-                mt: 0.5,
-                color: 'text.secondary',
-                '&:hover': {
-                  color: 'primary.main',
-                },
-              }}
-            >
-              <FunctionsIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+                  setInput(prev => prev + '\n\n' + helpText);
+                }}
+                sx={{
+                  height: 40,
+                  width: 40,
+                  mt: 0.5,
+                  color: 'text.secondary',
+                  '&:hover': {
+                    color: 'primary.main',
+                  },
+                }}
+              >
+                <FunctionsIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
-      </Box>
 
-      {/* New Chat Confirmation Dialog */}
-      <Dialog
-        open={showNewChatDialog}
-        onClose={() => setShowNewChatDialog(false)}
-      >
-        <DialogTitle>Start New Chat?</DialogTitle>
-        <DialogContent>
-          <Typography>
-            This will clear your current chat history. Are you sure you want to start a new chat?
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowNewChatDialog(false)}>Cancel</Button>
-          <Button onClick={confirmNewChat} color="primary" variant="contained">
-            Start New Chat
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        {/* New Chat Confirmation Dialog */}
+        <Dialog
+          open={showNewChatDialog}
+          onClose={() => setShowNewChatDialog(false)}
+        >
+          <DialogTitle>Start New Chat?</DialogTitle>
+          <DialogContent>
+            <Typography>
+              This will clear your current chat history. Are you sure you want to start a new chat?
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowNewChatDialog(false)}>Cancel</Button>
+            <Button onClick={confirmNewChat} color="primary" variant="contained">
+              Start New Chat
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    </ErrorBoundary>
   );
 } 
