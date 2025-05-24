@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo, ComponentType } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Box,
   TextField,
@@ -49,7 +49,7 @@ import 'highlight.js/styles/github-dark.css';
 import TypingIndicator from './TypingIndicator';
 import { alpha } from '@mui/material/styles';
 import { Components } from 'react-markdown';
-import { ComponentPropsWithoutRef, HTMLAttributes } from 'react';
+import { ComponentPropsWithoutRef } from 'react';
 
 interface Topic {
   id: string;
@@ -59,7 +59,6 @@ interface Topic {
   messageCount: number;
   isBookmarked: boolean;
   difficulty?: 'beginner' | 'intermediate' | 'advanced';
-  concepts?: string[];
 }
 
 interface Message {
@@ -381,7 +380,6 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
       messageCount: 0,
       isBookmarked: false,
       difficulty: 'beginner',
-      concepts: ['basic_math', 'problem_solving']
     }];
   });
   const [currentTopic, setCurrentTopic] = useState<string>('default');
@@ -563,7 +561,6 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
       messageCount: 0,
       isBookmarked: false,
       difficulty: 'beginner',
-      concepts: []
     };
     setTopics(prev => [...prev, newTopic]);
     setCurrentTopic(newTopic.id);
@@ -628,7 +625,7 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
       </Box>
       <Divider />
       <List sx={{ p: 0 }}>
-        {Object.entries(TOPIC_CATEGORIES).map(([category, { icon, label, description, color, concepts }]) => (
+        {Object.entries(TOPIC_CATEGORIES).map(([category, { icon, label, description, color }]) => (
           <React.Fragment key={category}>
             <ListItemButton 
               onClick={() => handleCategoryToggle(category)}
