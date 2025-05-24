@@ -172,6 +172,7 @@ const loadChatHistory = (userName: string): Message[] => {
 type CodeComponentProps = ComponentPropsWithoutRef<'code'> & {
   inline?: boolean;
   className?: string;
+  node?: any;
 };
 
 type ParagraphComponentProps = ComponentPropsWithoutRef<'p'>;
@@ -180,7 +181,7 @@ type OrderedListComponentProps = ComponentPropsWithoutRef<'ol'>;
 
 const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: React.MouseEvent) => void, isStepByStep: boolean): Components => {
   return useMemo(() => ({
-    code: ({ node, inline, className, children, ...props }: CodeComponentProps) => {
+    code: ({ inline, className, children, ...props }: CodeComponentProps) => {
       const match = /language-(\w+)/.exec(className || '');
       const language = match ? match[1] : '';
       const code = String(children).replace(/\n$/, '');
