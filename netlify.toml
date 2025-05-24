@@ -6,17 +6,17 @@
 [build.environment]
   NODE_VERSION = "18"
 
-# Proxy API requests to the backend (must come before the catch-all redirect)
+# Proxy API requests to the backend
 [[redirects]]
-  from = "/api/*"
-  to = "https://math-gpt.onrender.com/:splat"
+  from = "/api/chat"
+  to = "https://math-gpt.onrender.com/chat"
   status = 200
   force = true
-  conditions = {Path = ["/api/*"]}
+  headers = {Access-Control-Allow-Origin = "*"}
 
 # Redirect all other requests to index.html for client-side routing
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-  conditions = {Path = ["!^/api/*"]} 
+  except = ["/api/*"] 
