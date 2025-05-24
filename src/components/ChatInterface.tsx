@@ -37,7 +37,6 @@ import {
   Science as ScienceIcon,
   Calculate as CalculateIcon,
   Timeline as TimelineIcon,
-  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -179,11 +178,6 @@ const loadChatHistory = (userName: string): Message[] => {
   }
 };
 
-// Define proper types for markdown components
-type MarkdownHeadingProps = ComponentPropsWithoutRef<'h1'> & {
-  level?: number;
-  ordered?: boolean;
-};
 
 type MarkdownParagraphProps = ComponentPropsWithoutRef<'p'> & {
   ordered?: boolean;
@@ -383,8 +377,8 @@ const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: 
   }), [theme, handleCopy, isStepByStep]);
 };
 
-// Add ErrorBoundary component at the top of the file after imports
-class ErrorBoundary extends React.Component<
+// Export the ErrorBoundary component
+export class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
   { hasError: boolean; error: Error | null }
 > {
@@ -432,52 +426,27 @@ class ErrorBoundary extends React.Component<
   }
 }
 
-// Simple error boundary component
-class ChatErrorBoundary extends React.Component<
-  { children: React.ReactNode },
-  { hasError: boolean }
-> {
-  constructor(props: { children: React.ReactNode }) {
-    super(props);
-    this.state = { hasError: false };
-  }
+// Add type for topic category
+type TopicCategory = keyof typeof TOPIC_CATEGORIES;
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: Error) {
-    console.error('Chat Error:', error);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <Box sx={{ p: 3, textAlign: 'center' }}>
-          <Typography variant="h6" color="error" gutterBottom>
-            Something went wrong
-          </Typography>
-          <Button
-            variant="contained"
-            onClick={() => window.location.reload()}
-            startIcon={<RefreshIcon />}
-          >
-            Reload Page
-          </Button>
-        </Box>
-      );
-    }
-    return this.props.children;
-  }
-}
-
-// Add a helper function at the top of the file after TOPIC_CATEGORIES definition
-const getTopicCategory = (category: string | undefined): keyof typeof TOPIC_CATEGORIES => {
+// Update the helper function with proper typing
+const getTopicCategory = (category: string | undefined): TopicCategory => {
   if (category && category in TOPIC_CATEGORIES) {
-    return category as keyof typeof TOPIC_CATEGORIES;
+    return category as TopicCategory;
   }
   return 'general';
 };
+
+// Update the Topic interface to use the TopicCategory type
+interface Topic {
+  id: string;
+  name: string;
+  category: TopicCategory;
+  lastActive: Date;
+  messageCount: number;
+  isBookmarked: boolean;
+  difficulty?: 'beginner' | 'intermediate' | 'advanced';
+}
 
 export default function ChatInterface({ userName, onNewChat, onMessageCountChange }: ChatInterfaceProps) {
   // Initialize state with default values
@@ -581,12 +550,21 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
       topicId: currentTopic,
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setIsLoading(true);
-    setIsTyping(true);
-
     try {
+      setInput('');
+      setIsLoading(true);
+      setIsTyping(true);
+      
+      // Update messages state safely
+      setMessages(prev => {
+        try {
+          return [...prev, userMessage];
+        } catch (error) {
+          console.error('Error updating messages state:', error);
+          return prev;
+        }
+      });
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -614,9 +592,18 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
         content: data.response,
         sender: 'ai',
         timestamp: new Date(),
+        topicId: currentTopic,
       };
 
-      setMessages(prev => [...prev, aiMessage]);
+      // Update messages state safely
+      setMessages(prev => {
+        try {
+          return [...prev, aiMessage];
+        } catch (error) {
+          console.error('Error updating messages state:', error);
+          return prev;
+        }
+      });
     } catch (error) {
       console.error('Error in chat:', error);
       
@@ -652,160 +639,88 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
   };
 
   const renderMessageContent = (message: Message) => {
-    if (message.sender === 'user') {
+    if (!message?.content) {
+      console.error('Invalid message:', message);
       return (
-        <Typography
-          variant="body1"
-          sx={{
-            color: 'white',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-          }}
-        >
-          {message.content}
+        <Typography variant="body1" color="error">
+          Invalid message format
         </Typography>
       );
     }
 
-    // Special styling for welcome message
-    if (message.id === 'welcome') {
-      const markdownComponents: Components = {
-        ...useMarkdownComponents(theme, handleCopy, false),
-        h1: function Heading1(props: MarkdownHeadingProps) {
-          const { children, className, ...rest } = props;
-          return (
-            <Typography
-              component="h1"
-              variant="h3"
-              className={className}
-              {...rest}
-              sx={{
-                fontWeight: 600,
-                mb: 3,
-                background: 'linear-gradient(45deg, #6750A4 30%, #625B71 90%)',
-                backgroundClip: 'text',
-                WebkitBackgroundClip: 'text',
-                color: 'transparent',
-                fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
-              }}
+    try {
+      // User messages are simple text
+      if (message.sender === 'user') {
+        return (
+          <Typography
+            variant="body1"
+            sx={{
+              color: 'white',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+            }}
+          >
+            {message.content}
+          </Typography>
+        );
+      }
+
+      // Welcome message with simpler styling
+      if (message.id === 'welcome') {
+        return (
+          <Box
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minHeight: { xs: '60vh', sm: '70vh' },
+              width: '100%',
+              py: 4,
+              px: 2,
+            }}
+          >
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[rehypeRaw, rehypeHighlight, rehypeKatex]}
+              components={useMarkdownComponents(theme, handleCopy, false)}
             >
-              {children}
-            </Typography>
-          );
-        },
-        h2: function Heading2(props: MarkdownHeadingProps) {
-          const { children, className, ...rest } = props;
-          return (
-            <Typography
-              component="h2"
-              variant="h5"
-              className={className}
-              {...rest}
-              sx={{
-                fontWeight: 500,
-                mb: 2,
-                color: 'text.secondary',
-                fontSize: { xs: '1.1rem', sm: '1.25rem' },
-              }}
-            >
-              {children}
-            </Typography>
-          );
-        },
-        p: function Paragraph(props: MarkdownParagraphProps) {
-          const { children, className, ...rest } = props;
-          return (
-            <Typography
-              component="p"
-              variant="body1"
-              className={className}
-              {...rest}
-              sx={{
-                color: 'text.secondary',
-                mb: 2,
-                fontSize: { xs: '1rem', sm: '1.1rem' },
-                maxWidth: '600px',
-              }}
-            >
-              {children}
-            </Typography>
-          );
-        },
-        ul: function UnorderedList(props: MarkdownListProps) {
-          const { children, className, ...rest } = props;
-          return (
-            <Box
-              component="ul"
-              className={className}
-              {...rest}
-              sx={{
-                listStyle: 'none',
-                p: 0,
-                m: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
-                maxWidth: '600px',
-                '& li': {
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  color: 'text.secondary',
-                  fontSize: { xs: '1rem', sm: '1.1rem' },
-                  '&::before': {
-                    content: '"•"',
-                    color: 'primary.main',
-                    fontSize: '1.5rem',
-                  },
-                },
-              }}
-            >
-              {children}
-            </Box>
-          );
-        },
-      };
+              {message.content}
+            </ReactMarkdown>
+          </Box>
+        );
+      }
+
+      // Regular AI messages with fallback
+      const isStepByStepMessage = message.content.includes('step-by-step solution') || 
+                                 message.content.includes('Here\'s the step-by-step solution');
 
       return (
-        <Box
-          sx={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            textAlign: 'center',
-            maxWidth: '800px',
-            mx: 'auto',
-            py: 4,
-            px: 2,
-          }}
-        >
+        <Box sx={{ position: 'relative' }}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkMath]}
             rehypePlugins={[rehypeRaw, rehypeHighlight, rehypeKatex]}
-            components={markdownComponents}
+            components={useMarkdownComponents(theme, handleCopy, isStepByStepMessage)}
           >
             {message.content}
           </ReactMarkdown>
         </Box>
       );
-    }
-
-    const isStepByStepMessage = message.content.includes('step-by-step solution') || 
-                               message.content.includes('Here\'s the step-by-step solution');
-
-    const components = useMarkdownComponents(theme, handleCopy, isStepByStepMessage);
-
-    return (
-      <Box sx={{ position: 'relative' }}>
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkMath]}
-          rehypePlugins={[rehypeRaw, rehypeHighlight, rehypeKatex]}
-          components={components}
+    } catch (error) {
+      console.error('Error rendering message:', error);
+      return (
+        <Typography
+          variant="body1"
+          sx={{
+            color: 'error.main',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
         >
-          {message.content}
-        </ReactMarkdown>
-      </Box>
-    );
+          Error displaying message. Please try again.
+        </Typography>
+      );
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -1025,78 +940,82 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
   );
 
   return (
-    <Box sx={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100vh',
-      bgcolor: 'background.default',
-      position: 'relative',
-      overflow: 'hidden',
-    }}>
-      {/* Header */}
-      <Box sx={{
-        p: { xs: 1, sm: 2 },
-        borderBottom: 1,
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
-        display: 'flex',
-        flexDirection: { xs: 'column', sm: 'row' },
-        justifyContent: 'space-between',
-        alignItems: { xs: 'flex-start', sm: 'center' },
-        gap: { xs: 1, sm: 0 },
-        position: 'sticky',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 2,
-      }}>
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: 2,
-          width: { xs: '100%', sm: 'auto' }
+    <ErrorBoundary>
+      <Box
+        component="div"
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100vh',
+          bgcolor: 'background.default',
+          position: 'relative',
+          overflow: 'hidden',
+        }}
+      >
+        {/* Header */}
+        <Box sx={{
+          p: { xs: 1, sm: 2 },
+          borderBottom: 1,
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          gap: { xs: 1, sm: 0 },
+          position: 'sticky',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 2,
         }}>
-          <IconButton
-            onClick={() => setIsDrawerOpen(true)}
-            sx={{ color: 'text.primary' }}
-          >
-            <SchoolIcon />
-          </IconButton>
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              {topics.find(t => t.id === currentTopic)?.name || 'Math GPT'}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
-              {TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].description}
-            </Typography>
-          </Box>
-          <Chip
-            label={TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].label}
-            size="small"
-            icon={TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].icon}
-            sx={{ 
-              ml: 1,
-              bgcolor: alpha(TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].color, 0.1),
-              color: TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].color,
-              '& .MuiChip-icon': {
-                color: 'inherit',
-              },
-            }}
-          />
-        </Box>
-        <Button
-          variant="outlined"
-          startIcon={<AddIcon />}
-          onClick={handleNewChat}
-          sx={{
-            borderRadius: 2,
-            textTransform: 'none',
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2,
             width: { xs: '100%', sm: 'auto' }
-          }}
-        >
-          New Chat
-        </Button>
-      </Box>
+          }}>
+            <IconButton
+              onClick={() => setIsDrawerOpen(true)}
+              sx={{ color: 'text.primary' }}
+            >
+              <SchoolIcon />
+            </IconButton>
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                {topics.find(t => t.id === currentTopic)?.name || 'Math GPT'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
+                {TOPIC_CATEGORIES[getTopicCategory(topics.find(t => t.id === currentTopic)?.category)].description}
+              </Typography>
+            </Box>
+            <Chip
+              label={TOPIC_CATEGORIES[getTopicCategory(topics.find(t => t.id === currentTopic)?.category)].label}
+              size="small"
+              icon={TOPIC_CATEGORIES[getTopicCategory(topics.find(t => t.id === currentTopic)?.category)].icon}
+              sx={{ 
+                ml: 1,
+                bgcolor: alpha(TOPIC_CATEGORIES[getTopicCategory(topics.find(t => t.id === currentTopic)?.category)].color, 0.1),
+                color: TOPIC_CATEGORIES[getTopicCategory(topics.find(t => t.id === currentTopic)?.category)].color,
+                '& .MuiChip-icon': {
+                  color: 'inherit',
+                },
+              }}
+            />
+          </Box>
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={handleNewChat}
+            sx={{
+              borderRadius: 2,
+              textTransform: 'none',
+              width: { xs: '100%', sm: 'auto' }
+            }}
+          >
+            New Chat
+          </Button>
+        </Box>
 
         {renderSidebar()}
 
@@ -1240,24 +1159,25 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
           </Box>
         </Box>
 
-      {/* New Chat Confirmation Dialog */}
-      <Dialog
-        open={showNewChatDialog}
-        onClose={() => setShowNewChatDialog(false)}
-      >
-        <DialogTitle>Start New Chat?</DialogTitle>
-        <DialogContent>
-          <Typography>
-            This will clear your current chat history. Are you sure you want to start a new chat?
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowNewChatDialog(false)}>Cancel</Button>
-          <Button onClick={confirmNewChat} color="primary" variant="contained">
-            Start New Chat
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        {/* New Chat Confirmation Dialog */}
+        <Dialog
+          open={showNewChatDialog}
+          onClose={() => setShowNewChatDialog(false)}
+        >
+          <DialogTitle>Start New Chat?</DialogTitle>
+          <DialogContent>
+            <Typography>
+              This will clear your current chat history. Are you sure you want to start a new chat?
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowNewChatDialog(false)}>Cancel</Button>
+            <Button onClick={confirmNewChat} color="primary" variant="contained">
+              Start New Chat
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    </ErrorBoundary>
   );
 } 
