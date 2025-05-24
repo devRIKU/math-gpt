@@ -79,53 +79,53 @@ interface ChatInterfaceProps {
 const STORAGE_KEY = 'math_gpt_chat_history';
 
 const TOPIC_CATEGORIES = {
+  general: { 
+    icon: <SchoolIcon />, 
+    label: 'General Math',
+    description: 'General mathematics help and problem solving',
+    color: '#4CAF50',
+  },
   arithmetic: { 
     icon: <CalculateIcon />, 
     label: 'Arithmetic',
     description: 'Basic operations, fractions, decimals, percentages',
-    color: '#4CAF50',
-    concepts: ['Basic Operations', 'Fractions', 'Decimals', 'Percentages', 'Number Theory']
+    color: '#2196F3',
   },
   algebra: { 
     icon: <FunctionsIcon />, 
     label: 'Algebra',
     description: 'Equations, functions, polynomials, matrices',
-    color: '#2196F3',
-    concepts: ['Linear Equations', 'Quadratic Equations', 'Functions', 'Polynomials', 'Matrices']
+    color: '#9C27B0',
   },
   calculus: { 
     icon: <FunctionsIcon />, 
     label: 'Calculus',
     description: 'Derivatives, integrals, limits, series',
-    color: '#9C27B0',
-    concepts: ['Derivatives', 'Integrals', 'Limits', 'Series', 'Differential Equations']
+    color: '#FF9800',
   },
   geometry: { 
     icon: <TimelineIcon />, 
     label: 'Geometry',
     description: 'Shapes, theorems, trigonometry, vectors',
-    color: '#FF9800',
-    concepts: ['Plane Geometry', 'Solid Geometry', 'Trigonometry', 'Vectors', 'Analytic Geometry']
+    color: '#F44336',
   },
   statistics: { 
     icon: <ScienceIcon />, 
     label: 'Statistics',
     description: 'Probability, distributions, data analysis',
-    color: '#F44336',
-    concepts: ['Probability', 'Distributions', 'Data Analysis', 'Hypothesis Testing', 'Regression']
+    color: '#795548',
   },
   discrete: { 
     icon: <SchoolIcon />, 
     label: 'Discrete Math',
     description: 'Logic, sets, combinatorics, number theory',
-    color: '#795548',
-    concepts: ['Logic', 'Set Theory', 'Combinatorics', 'Number Theory', 'Graph Theory']
+    color: '#607D8B',
   }
 };
 
 const getWelcomeMessage = (userName: string, category: keyof typeof TOPIC_CATEGORIES): Message => ({
   id: 'welcome',
-  content: `Welcome to ${TOPIC_CATEGORIES[category].label}, ${userName}! 👋\n\nI'm your AI-powered mathematical assistant. I can help you with:\n\n• ${TOPIC_CATEGORIES[category].description}\n• Step-by-step solutions\n• Concept explanations\n• Practice problems\n\nFeel free to ask any questions about ${TOPIC_CATEGORIES[category].label.toLowerCase()}!`,
+  content: `Welcome to ${TOPIC_CATEGORIES[category].label}, ${userName}! 👋\n\nI'm your AI-powered mathematical assistant. I can help you with:\n\n• ${TOPIC_CATEGORIES[category].description}\n• Step-by-step solutions\n• Concept explanations\n• Practice problems\n\nFeel free to ask any questions about mathematics!`,
   sender: 'ai',
   timestamp: new Date(),
   topicId: 'default'
@@ -135,12 +135,12 @@ const loadChatHistory = (userName: string): Message[] => {
   try {
     const savedMessages = localStorage.getItem(STORAGE_KEY);
     if (!savedMessages) {
-      return [getWelcomeMessage(userName, 'algebra')];
+      return [getWelcomeMessage(userName, 'general')];
     }
 
     const parsed = JSON.parse(savedMessages);
     if (!Array.isArray(parsed) || parsed.length === 0) {
-      return [getWelcomeMessage(userName, 'algebra')];
+      return [getWelcomeMessage(userName, 'general')];
     }
 
     // Validate and convert each message
@@ -158,12 +158,12 @@ const loadChatHistory = (userName: string): Message[] => {
       timestamp: new Date(msg.timestamp)
     }));
 
-    return validMessages.length > 0 ? validMessages : [getWelcomeMessage(userName, 'algebra')];
+    return validMessages.length > 0 ? validMessages : [getWelcomeMessage(userName, 'general')];
   } catch (error) {
     console.error('Error loading chat history:', error);
     // Clear potentially corrupted data
     localStorage.removeItem(STORAGE_KEY);
-    return [getWelcomeMessage(userName, 'algebra')];
+    return [getWelcomeMessage(userName, 'general')];
   }
 };
 
@@ -375,11 +375,11 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
     return [{
       id: 'default',
       name: 'General Math Help',
-      category: 'algebra',
+      category: 'general',
       lastActive: new Date(),
       messageCount: 0,
       isBookmarked: false,
-      difficulty: 'beginner',
+      difficulty: 'beginner'
     }];
   });
   const [currentTopic, setCurrentTopic] = useState<string>('default');
@@ -548,19 +548,19 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
   };
 
   const confirmNewChat = () => {
-    setMessages([getWelcomeMessage(userName, 'algebra')]);
+    setMessages([getWelcomeMessage(userName, 'general')]);
     setShowNewChatDialog(false);
   };
 
   const handleNewTopic = () => {
     const newTopic: Topic = {
       id: Date.now().toString(),
-      name: `New ${TOPIC_CATEGORIES.algebra.label} Topic`,
-      category: 'algebra',
+      name: `New ${TOPIC_CATEGORIES.general.label} Topic`,
+      category: 'general',
       lastActive: new Date(),
       messageCount: 0,
       isBookmarked: false,
-      difficulty: 'beginner',
+      difficulty: 'beginner'
     };
     setTopics(prev => [...prev, newTopic]);
     setCurrentTopic(newTopic.id);
@@ -789,17 +789,17 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
               {topics.find(t => t.id === currentTopic)?.name || 'Math GPT'}
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
-              {TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'algebra'].description}
+              {TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].description}
             </Typography>
           </Box>
           <Chip
-            label={TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'algebra'].label}
+            label={TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].label}
             size="small"
-            icon={TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'algebra'].icon}
+            icon={TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].icon}
             sx={{ 
               ml: 1,
-              bgcolor: alpha(TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'algebra'].color, 0.1),
-              color: TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'algebra'].color,
+              bgcolor: alpha(TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].color, 0.1),
+              color: TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].color,
               '& .MuiChip-icon': {
                 color: 'inherit',
               },
