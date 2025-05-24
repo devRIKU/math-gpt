@@ -125,7 +125,18 @@ const TOPIC_CATEGORIES = {
 
 const getWelcomeMessage = (userName: string, category: keyof typeof TOPIC_CATEGORIES): Message => ({
   id: 'welcome',
-  content: `Welcome to ${TOPIC_CATEGORIES[category].label}, ${userName}! 👋\n\nI'm your AI-powered mathematical assistant. I can help you with:\n\n• ${TOPIC_CATEGORIES[category].description}\n• Step-by-step solutions\n• Concept explanations\n• Practice problems\n\nFeel free to ask any questions about mathematics!`,
+  content: `# Welcome, ${userName}! 👋
+
+I'm your AI-powered mathematical assistant, ready to help you explore and understand mathematics.
+
+## What I can help you with:
+• ${TOPIC_CATEGORIES[category].description}
+• Step-by-step solutions
+• Concept explanations
+• Practice problems
+• Interactive learning
+
+Feel free to ask any questions about mathematics!`,
   sender: 'ai',
   timestamp: new Date(),
   topicId: 'default'
@@ -177,6 +188,14 @@ type CodeComponentProps = ComponentPropsWithoutRef<'code'> & {
 type ParagraphComponentProps = ComponentPropsWithoutRef<'p'>;
 type ListComponentProps = ComponentPropsWithoutRef<'ul'>;
 type OrderedListComponentProps = ComponentPropsWithoutRef<'ol'>;
+
+// Add these type definitions at the top with other interfaces
+type MarkdownComponentProps = {
+  children: React.ReactNode;
+  className?: string;
+  node?: any;
+  inline?: boolean;
+};
 
 const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: React.MouseEvent) => void, isStepByStep: boolean): Components => {
   return useMemo(() => ({
@@ -509,6 +528,125 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
         >
           {message.content}
         </Typography>
+      );
+    }
+
+    // Special styling for welcome message
+    if (message.id === 'welcome') {
+      const markdownComponents: Components = {
+        ...useMarkdownComponents(theme, handleCopy, false),
+        h1: (props: MarkdownComponentProps) => {
+          const { children, className } = props;
+          return (
+            <Typography
+              component="h1"
+              variant="h3"
+              className={className}
+              sx={{
+                fontWeight: 600,
+                mb: 3,
+                background: 'linear-gradient(45deg, #6750A4 30%, #625B71 90%)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                color: 'transparent',
+                fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
+              }}
+            >
+              {children}
+            </Typography>
+          );
+        },
+        h2: (props: MarkdownComponentProps) => {
+          const { children, className } = props;
+          return (
+            <Typography
+              component="h2"
+              variant="h5"
+              className={className}
+              sx={{
+                fontWeight: 500,
+                mb: 2,
+                color: 'text.secondary',
+                fontSize: { xs: '1.1rem', sm: '1.25rem' },
+              }}
+            >
+              {children}
+            </Typography>
+          );
+        },
+        p: (props: MarkdownComponentProps) => {
+          const { children, className } = props;
+          return (
+            <Typography
+              component="p"
+              variant="body1"
+              className={className}
+              sx={{
+                color: 'text.secondary',
+                mb: 2,
+                fontSize: { xs: '1rem', sm: '1.1rem' },
+                maxWidth: '600px',
+              }}
+            >
+              {children}
+            </Typography>
+          );
+        },
+        ul: (props: MarkdownComponentProps) => {
+          const { children, className } = props;
+          return (
+            <Box
+              component="ul"
+              className={className}
+              sx={{
+                listStyle: 'none',
+                p: 0,
+                m: 0,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 2,
+                maxWidth: '600px',
+                '& li': {
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  color: 'text.secondary',
+                  fontSize: { xs: '1rem', sm: '1.1rem' },
+                  '&::before': {
+                    content: '"•"',
+                    color: 'primary.main',
+                    fontSize: '1.5rem',
+                  },
+                },
+              }}
+            >
+              {children}
+            </Box>
+          );
+        },
+      };
+
+      return (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            textAlign: 'center',
+            maxWidth: '800px',
+            mx: 'auto',
+            py: 4,
+            px: 2,
+          }}
+        >
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[rehypeRaw, rehypeHighlight, rehypeKatex]}
+            components={markdownComponents}
+          >
+            {message.content}
+          </ReactMarkdown>
+        </Box>
       );
     }
 
