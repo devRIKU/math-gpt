@@ -8,6 +8,7 @@ import {
   Container,
   useTheme,
   Fade,
+  Alert,
 } from '@mui/material';
 import { Send as SendIcon } from '@mui/icons-material';
 
@@ -15,22 +16,44 @@ interface LoginPageProps {
   onLogin: (name: string) => void;
 }
 
+// Blacklisted names (case-insensitive)
+const BLACKLISTED_NAMES = [
+  'rishap',
+  'rishap pal',
+  'bishop',
+];
+
 export default function LoginPage({ onLogin }: LoginPageProps) {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
+  const [isBlacklisted, setIsBlacklisted] = useState(false);
   const theme = useTheme();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) {
+    const trimmedName = name.trim().toLowerCase();
+    
+    // Check if name is blacklisted
+    if (BLACKLISTED_NAMES.includes(trimmedName)) {
+      setIsBlacklisted(true);
+      return;
+    }
+
+    if (!trimmedName) {
       setError('Please enter your name');
       return;
     }
-    if (name.length < 2) {
+    if (trimmedName.length < 2) {
       setError('Name must be at least 2 characters long');
       return;
     }
     onLogin(name.trim());
+  };
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setName(e.target.value);
+    setError('');
+    setIsBlacklisted(false);
   };
 
   return (
@@ -87,53 +110,66 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
               Your AI-powered mathematical assistant
             </Typography>
 
-            <Box
-              component="form"
-              onSubmit={handleSubmit}
-              sx={{
-                width: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
-              }}
-            >
-              <TextField
-                fullWidth
-                label="Enter your name"
-                variant="outlined"
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  setError('');
-                }}
-                error={!!error}
-                helperText={error}
-                autoFocus
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 2,
-                  },
-                }}
-              />
-              
-              <Button
-                type="submit"
-                variant="contained"
-                size="large"
-                endIcon={<SendIcon />}
-                sx={{
-                  mt: 2,
-                  py: 1.5,
-                  borderRadius: 2,
-                  background: 'linear-gradient(45deg, #6750A4 30%, #625B71 90%)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #7B61D9 30%, #7A7389 90%)',
-                  },
+            {isBlacklisted ? (
+              <Alert 
+                severity="info" 
+                sx={{ 
+                  width: '100%',
+                  mb: 2,
+                  '& .MuiAlert-message': {
+                    fontSize: '1.1rem',
+                    fontWeight: 500,
+                  }
                 }}
               >
-                Start Chatting
-              </Button>
-            </Box>
+                You're too smart for it! 😉
+              </Alert>
+            ) : (
+              <Box
+                component="form"
+                onSubmit={handleSubmit}
+                sx={{
+                  width: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 2,
+                }}
+              >
+                <TextField
+                  fullWidth
+                  label="Enter your name"
+                  variant="outlined"
+                  value={name}
+                  onChange={handleNameChange}
+                  error={!!error}
+                  helperText={error}
+                  autoFocus
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: 2,
+                    },
+                  }}
+                />
+                
+                <Button
+                  type="submit"
+                  variant="contained"
+                  size="large"
+                  endIcon={<SendIcon />}
+                  sx={{
+                    mt: 2,
+                    py: 1.5,
+                    borderRadius: 2,
+                    background: 'linear-gradient(45deg, #6750A4 30%, #625B71 90%)',
+                    '&:hover': {
+                      background: 'linear-gradient(45deg, #7B61D9 30%, #7A7389 90%)',
+                    },
+                  }}
+                >
+                  Start Chatting
+                </Button>
+              </Box>
+            )}
           </Paper>
         </Box>
       </Container>
