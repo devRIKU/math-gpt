@@ -16,7 +16,6 @@
 
 body {
   min-height: 100vh;
-  overflow: hidden;
 }
 
 /* Custom scrollbar styles */
@@ -105,4 +104,15 @@ body {
   .math-expression {
     background-color: rgba(255, 255, 255, 0.1);
   }
+}
+
+/* Add styles for chat container */
+.chat-container {
+  height: calc(100vh - 180px); /* Adjust based on header and input height */
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 } 

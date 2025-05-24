@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { 
   ThemeProvider, 
   createTheme, 
@@ -11,39 +11,149 @@ import {
   Toolbar,
   Typography,
   IconButton,
-  Fab,
-  useTheme,
+  alpha,
 } from '@mui/material';
 import { 
-  Add as AddIcon,
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
   Logout as LogoutIcon,
 } from '@mui/icons-material';
 import ChatInterface from './components/ChatInterface';
 import LoginPage from './components/LoginPage';
+import NewChatDialog from './components/NewChatDialog';
+
+// Material You color tokens
+const colorTokens = {
+  light: {
+    primary: {
+      main: '#6750A4',
+      light: '#7F67BE',
+      dark: '#4F378B',
+      container: '#EADDFF',
+      onContainer: '#21005E',
+    },
+    secondary: {
+      main: '#625B71',
+      light: '#7A7389',
+      dark: '#4A4458',
+      container: '#E8DEF8',
+      onContainer: '#1D192B',
+    },
+    tertiary: {
+      main: '#7D5260',
+      light: '#9B6B7A',
+      dark: '#5D3B47',
+      container: '#FFD8E4',
+      onContainer: '#31111D',
+    },
+    error: {
+      main: '#B3261E',
+      light: '#DC362E',
+      dark: '#8C1D18',
+      container: '#F9DEDC',
+      onContainer: '#410E0B',
+    },
+    background: {
+      default: '#FFFBFE',
+      paper: '#FFFBFE',
+      surface: '#FFFBFE',
+      surfaceVariant: '#E7E0EC',
+      inverse: '#1C1B1F',
+    },
+    surface: {
+      dim: '#F4EFF4',
+      bright: '#FFFBFE',
+      low: '#F7F2FA',
+      high: '#F4EFF4',
+    },
+    outline: {
+      main: '#79747E',
+      variant: '#CAC4D0',
+    },
+    text: {
+      primary: '#1C1B1F',
+      secondary: '#49454F',
+      disabled: '#79747E',
+    },
+  },
+  dark: {
+    primary: {
+      main: '#D0BCFF',
+      light: '#E8DEF8',
+      dark: '#B69DF8',
+      container: '#4F378B',
+      onContainer: '#EADDFF',
+    },
+    secondary: {
+      main: '#CCC2DC',
+      light: '#E8DEF8',
+      dark: '#B69DF8',
+      container: '#4A4458',
+      onContainer: '#E8DEF8',
+    },
+    tertiary: {
+      main: '#EFB8C8',
+      light: '#FFD8E4',
+      dark: '#D4A4B3',
+      container: '#5D3B47',
+      onContainer: '#FFD8E4',
+    },
+    error: {
+      main: '#F2B8B5',
+      light: '#F9DEDC',
+      dark: '#DC362E',
+      container: '#8C1D18',
+      onContainer: '#F9DEDC',
+    },
+    background: {
+      default: '#1C1B1F',
+      paper: '#1C1B1F',
+      surface: '#1C1B1F',
+      surfaceVariant: '#49454F',
+      inverse: '#FFFBFE',
+    },
+    surface: {
+      dim: '#141218',
+      bright: '#1C1B1F',
+      low: '#141218',
+      high: '#2D2C31',
+    },
+    outline: {
+      main: '#938F99',
+      variant: '#49454F',
+    },
+    text: {
+      primary: '#E6E1E5',
+      secondary: '#CAC4D0',
+      disabled: '#938F99',
+    },
+  },
+};
 
 function App() {
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
   const [mode, setMode] = useState<'light' | 'dark'>(prefersDarkMode ? 'dark' : 'light');
-  const theme = useTheme();
   const [userName, setUserName] = useState<string | null>(() => {
     // Try to get the user's name from localStorage
     return localStorage.getItem('userName');
   });
+  const [isNewChatDialogOpen, setIsNewChatDialogOpen] = useState(false);
+  const [hasMessages, setHasMessages] = useState(false);
 
-  const themeProvider = createTheme({
+  const themeProvider = useMemo(() => createTheme({
     palette: {
       mode,
-      primary: {
-        main: '#6750A4',
+      ...colorTokens[mode],
+      common: {
+        black: '#000000',
+        white: '#FFFFFF',
       },
-      secondary: {
-        main: '#625B71',
-      },
-      background: {
-        default: mode === 'light' ? '#FEF7FF' : '#1C1B1F',
-        paper: mode === 'light' ? '#FFFFFF' : '#1C1B1F',
+      action: {
+        active: alpha(colorTokens[mode].text.primary, 0.56),
+        hover: alpha(colorTokens[mode].text.primary, 0.04),
+        selected: alpha(colorTokens[mode].text.primary, 0.08),
+        disabled: alpha(colorTokens[mode].text.primary, 0.38),
+        disabledBackground: alpha(colorTokens[mode].text.primary, 0.12),
       },
     },
     shape: {
@@ -57,8 +167,81 @@ function App() {
           },
         },
       },
+      MuiAppBar: {
+        styleOverrides: {
+          root: {
+            backgroundColor: mode === 'dark' ? colorTokens.dark.surface.dim : colorTokens.light.surface.bright,
+          },
+        },
+      },
+      MuiButton: {
+        styleOverrides: {
+          root: {
+            textTransform: 'none',
+            fontWeight: 500,
+          },
+          contained: {
+            boxShadow: 'none',
+            '&:hover': {
+              boxShadow: 'none',
+            },
+          },
+        },
+      },
+      MuiIconButton: {
+        styleOverrides: {
+          root: {
+            borderRadius: 12,
+          },
+        },
+      },
+      MuiFab: {
+        styleOverrides: {
+          root: {
+            boxShadow: mode === 'dark' 
+              ? '0px 4px 8px rgba(0, 0, 0, 0.3)' 
+              : '0px 4px 8px rgba(0, 0, 0, 0.1)',
+          },
+        },
+      },
     },
-  });
+    typography: {
+      fontFamily: [
+        'Roboto',
+        'system-ui',
+        '-apple-system',
+        'BlinkMacSystemFont',
+        'Segoe UI',
+        'Oxygen',
+        'Ubuntu',
+        'Cantarell',
+        'Open Sans',
+        'Helvetica Neue',
+        'sans-serif',
+      ].join(','),
+      h1: {
+        fontWeight: 700,
+      },
+      h2: {
+        fontWeight: 700,
+      },
+      h3: {
+        fontWeight: 700,
+      },
+      h4: {
+        fontWeight: 600,
+      },
+      h5: {
+        fontWeight: 600,
+      },
+      h6: {
+        fontWeight: 600,
+      },
+      button: {
+        fontWeight: 500,
+      },
+    },
+  }), [mode]);
 
   const toggleColorMode = () => {
     setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
@@ -72,6 +255,16 @@ function App() {
   const handleLogout = () => {
     setUserName(null);
     localStorage.removeItem('userName');
+  };
+
+  const handleNewChat = () => {
+    setIsNewChatDialogOpen(true);
+  };
+
+  const handleNewChatConfirm = () => {
+    // Clear chat messages
+    setHasMessages(false);
+    // Additional cleanup if needed
   };
 
   if (!userName) {
@@ -172,31 +365,20 @@ function App() {
               borderColor: 'divider',
             }}
           >
-            <ChatInterface userName={userName} />
+            <ChatInterface 
+              userName={userName} 
+              onNewChat={handleNewChat}
+              onMessageCountChange={setHasMessages}
+            />
           </Paper>
         </Container>
 
-        <Fab
-          color="primary"
-          sx={{
-            position: 'fixed',
-            bottom: 24,
-            right: 24,
-            transition: 'all 0.2s ease-in-out',
-            '&:hover': {
-              transform: 'rotate(90deg) scale(1.1)',
-              '& .MuiSvgIcon-root': {
-                color: theme.palette.primary.contrastText,
-              },
-            },
-            '& .MuiSvgIcon-root': {
-              transition: 'transform 0.2s ease-in-out',
-            },
-          }}
-          onClick={() => {/* Handle new chat */}}
-        >
-          <AddIcon />
-        </Fab>
+        <NewChatDialog
+          open={isNewChatDialogOpen}
+          onClose={() => setIsNewChatDialogOpen(false)}
+          onConfirm={handleNewChatConfirm}
+          hasMessages={hasMessages}
+        />
       </Box>
     </ThemeProvider>
   );
