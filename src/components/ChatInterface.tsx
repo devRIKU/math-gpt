@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo, ComponentType } from 'react';
 import {
   Box,
   TextField,
@@ -9,7 +9,6 @@ import {
   useTheme,
   Tooltip,
   Fade,
-  Fab,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -17,7 +16,6 @@ import {
   Button,
   Drawer,
   List,
-  ListItem,
   ListItemIcon,
   ListItemText,
   ListItemButton,
@@ -29,7 +27,6 @@ import {
 import {
   Send as SendIcon,
   ContentCopy as CopyIcon,
-  Code as CodeIcon,
   Add as AddIcon,
   Functions as FunctionsIcon,
   Bookmark as BookmarkIcon,
@@ -51,6 +48,8 @@ import 'katex/dist/katex.min.css';
 import 'highlight.js/styles/github-dark.css';
 import TypingIndicator from './TypingIndicator';
 import { alpha } from '@mui/material/styles';
+import { Components } from 'react-markdown';
+import { ComponentPropsWithoutRef, HTMLAttributes } from 'react';
 
 interface Topic {
   id: string;
@@ -167,6 +166,199 @@ const loadChatHistory = (userName: string): Message[] => {
     localStorage.removeItem(STORAGE_KEY);
     return [getWelcomeMessage(userName, 'algebra')];
   }
+};
+
+interface CodeProps extends HTMLAttributes<HTMLElement> {
+  node?: any;
+  inline?: boolean;
+  className?: string;
+  children: React.ReactNode;
+}
+
+interface ParagraphProps extends HTMLAttributes<HTMLParagraphElement> {
+  children: React.ReactNode;
+}
+
+interface ListProps extends HTMLAttributes<HTMLUListElement> {
+  children: React.ReactNode;
+}
+
+interface OrderedListProps extends HTMLAttributes<HTMLOListElement> {
+  children: React.ReactNode;
+}
+
+const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: React.MouseEvent) => void, isStepByStep: boolean): Components => {
+  return useMemo(() => ({
+    code: ({ node, inline, className, children, ...props }: CodeProps) => {
+      const match = /language-(\w+)/.exec(className || '');
+      const language = match ? match[1] : '';
+      const code = String(children).replace(/\n$/, '');
+      
+      if (inline) {
+        return (
+          <code
+            className={className}
+            style={{
+              backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
+              padding: '0.2em 0.4em',
+              borderRadius: '4px',
+              fontFamily: 'monospace',
+            }}
+            {...props}
+          >
+            {children}
+          </code>
+        );
+      }
+
+      return (
+        <Box sx={{ position: 'relative' }}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2,
+              mt: 1,
+              mb: 1,
+              backgroundColor: theme.palette.mode === 'dark' ? '#1E1E1E' : '#F5F5F5',
+              borderRadius: 1,
+              overflow: 'auto',
+              '& pre': {
+                margin: 0,
+                padding: 0,
+                backgroundColor: 'transparent',
+              },
+            }}
+          >
+            {language && (
+              <Typography
+                variant="caption"
+                sx={{
+                  position: 'absolute',
+                  top: 4,
+                  right: 4,
+                  color: 'text.secondary',
+                  fontFamily: 'monospace',
+                }}
+              >
+                {language}
+              </Typography>
+            )}
+            <code className={className} {...props}>
+              {code}
+            </code>
+            <Tooltip title="Copy code">
+              <IconButton
+                size="small"
+                onClick={(e) => handleCopy(code, e)}
+                sx={{
+                  position: 'absolute',
+                  top: 4,
+                  right: language ? 48 : 4,
+                  opacity: 0,
+                  transition: 'opacity 0.2s',
+                  color: 'text.secondary',
+                  '&:hover': {
+                    opacity: 1,
+                    color: 'primary.main',
+                  },
+                }}
+              >
+                <CopyIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Paper>
+        </Box>
+      );
+    },
+    p: ({ children, ...props }: ParagraphProps) => {
+      const content = String(children);
+      // Check if the paragraph contains a math equation
+      if (content.includes('$') || content.includes('\\[') || content.includes('\\(')) {
+        return (
+          <Box
+            sx={{
+              p: 1,
+              my: 0.5,
+              backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+              borderRadius: 1,
+              overflowX: 'auto',
+            }}
+            {...props}
+          >
+            {children}
+          </Box>
+        );
+      }
+      // Check if the paragraph contains an equation
+      if (content.includes('=') && !content.includes('===')) {
+        return (
+          <Box
+            sx={{
+              p: 1,
+              my: 0.5,
+              backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+              borderRadius: 1,
+              fontFamily: 'Roboto Mono, monospace',
+            }}
+            {...props}
+          >
+            {children}
+          </Box>
+        );
+      }
+      return (
+        <Typography
+          variant="body1"
+          sx={{
+            color: 'text.primary',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            mb: 1,
+            ...(isStepByStep && content.match(/^\d+\./) && {
+              pl: 2,
+              borderLeft: `2px solid ${theme.palette.primary.main}`,
+              ml: 1,
+            }),
+          }}
+          {...props}
+        >
+          {children}
+        </Typography>
+      );
+    },
+    ul: ({ children, ...props }: ListProps) => (
+      <Box
+        component="ul"
+        sx={{
+          pl: 3,
+          mb: 2,
+          '& li': {
+            mb: 1,
+            color: 'text.primary',
+          },
+        }}
+        {...props}
+      >
+        {children}
+      </Box>
+    ),
+    ol: ({ children, ...props }: OrderedListProps) => (
+      <Box
+        component="ol"
+        sx={{
+          pl: 3,
+          mb: 2,
+          '& li': {
+            mb: 1,
+            color: 'text.primary',
+          },
+        }}
+        {...props}
+      >
+        {children}
+      </Box>
+    ),
+  }), [theme, handleCopy, isStepByStep]);
 };
 
 export default function ChatInterface({ userName, onNewChat, onMessageCountChange }: ChatInterfaceProps) {
@@ -335,181 +527,17 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
       );
     }
 
-    // Check if the message contains step-by-step solution
-    const isStepByStep = message.content.includes('step-by-step solution') || 
-                        message.content.includes('Here\'s the step-by-step solution');
+    const isStepByStepMessage = message.content.includes('step-by-step solution') || 
+                               message.content.includes('Here\'s the step-by-step solution');
+
+    const components = useMarkdownComponents(theme, handleCopy, isStepByStepMessage);
 
     return (
       <Box sx={{ position: 'relative' }}>
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkMath]}
           rehypePlugins={[rehypeRaw, rehypeHighlight, rehypeKatex]}
-          components={{
-            code({ node, inline, className, children, ...props }) {
-              const match = /language-(\w+)/.exec(className || '');
-              const language = match ? match[1] : '';
-              const code = String(children).replace(/\n$/, '');
-              
-              if (inline) {
-                return (
-                  <code
-                    className={className}
-                    style={{
-                      backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
-                      padding: '0.2em 0.4em',
-                      borderRadius: '4px',
-                      fontFamily: 'monospace',
-                    }}
-                    {...props}
-                  >
-                    {children}
-                  </code>
-                );
-              }
-
-              return (
-                <Box sx={{ position: 'relative' }}>
-                  <Paper
-                    elevation={0}
-                    sx={{
-                      p: 2,
-                      mt: 1,
-                      mb: 1,
-                      backgroundColor: theme.palette.mode === 'dark' ? '#1E1E1E' : '#F5F5F5',
-                      borderRadius: 1,
-                      overflow: 'auto',
-                      '& pre': {
-                        margin: 0,
-                        padding: 0,
-                        backgroundColor: 'transparent',
-                      },
-                    }}
-                  >
-                    {language && (
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          position: 'absolute',
-                          top: 4,
-                          right: 4,
-                          color: 'text.secondary',
-                          fontFamily: 'monospace',
-                        }}
-                      >
-                        {language}
-                      </Typography>
-                    )}
-                    <code className={className} {...props}>
-                      {code}
-                    </code>
-                    <Tooltip title="Copy code">
-                      <IconButton
-                        size="small"
-                        onClick={(e) => handleCopy(code, e)}
-                        sx={{
-                          position: 'absolute',
-                          top: 4,
-                          right: language ? 48 : 4,
-                          opacity: 0,
-                          transition: 'opacity 0.2s',
-                          color: 'text.secondary',
-                          '&:hover': {
-                            opacity: 1,
-                            color: 'primary.main',
-                          },
-                        }}
-                      >
-                        <CopyIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
-                  </Paper>
-                </Box>
-              );
-            },
-            p: ({ children }) => {
-              const content = String(children);
-              // Check if the paragraph contains a math equation
-              if (content.includes('$') || content.includes('\\[') || content.includes('\\(')) {
-                return (
-                  <Box
-                    sx={{
-                      p: 1,
-                      my: 0.5,
-                      backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
-                      borderRadius: 1,
-                      overflowX: 'auto',
-                    }}
-                  >
-                    {children}
-                  </Box>
-                );
-              }
-              // Check if the paragraph contains an equation
-              if (content.includes('=') && !content.includes('===')) {
-                return (
-                  <Box
-                    sx={{
-                      p: 1,
-                      my: 0.5,
-                      backgroundColor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
-                      borderRadius: 1,
-                      fontFamily: 'Roboto Mono, monospace',
-                    }}
-                  >
-                    {children}
-                  </Box>
-                );
-              }
-              return (
-                <Typography
-                  variant="body1"
-                  sx={{
-                    color: 'text.primary',
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    mb: 1,
-                    ...(isStepByStep && content.match(/^\d+\./) && {
-                      pl: 2,
-                      borderLeft: `2px solid ${theme.palette.primary.main}`,
-                      ml: 1,
-                    }),
-                  }}
-                >
-                  {children}
-                </Typography>
-              );
-            },
-            ul: ({ children }) => (
-              <Box
-                component="ul"
-                sx={{
-                  pl: 3,
-                  mb: 2,
-                  '& li': {
-                    mb: 1,
-                    color: 'text.primary',
-                  },
-                }}
-              >
-                {children}
-              </Box>
-            ),
-            ol: ({ children }) => (
-              <Box
-                component="ol"
-                sx={{
-                  pl: 3,
-                  mb: 2,
-                  '& li': {
-                    mb: 1,
-                    color: 'text.primary',
-                  },
-                }}
-              >
-                {children}
-              </Box>
-            ),
-          }}
+          components={components}
         >
           {message.content}
         </ReactMarkdown>

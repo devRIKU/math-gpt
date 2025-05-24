@@ -267,6 +267,10 @@ function App() {
     // Additional cleanup if needed
   };
 
+  const handleMessageCountChange = (count: number) => {
+    setHasMessages(count > 0);
+  };
+
   if (!userName) {
     return (
       <ThemeProvider theme={themeProvider}>
@@ -368,7 +372,7 @@ function App() {
             <ChatInterface 
               userName={userName} 
               onNewChat={handleNewChat}
-              onMessageCountChange={setHasMessages}
+              onMessageCountChange={handleMessageCountChange}
             />
           </Paper>
         </Container>
