@@ -939,6 +939,29 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
     </Drawer>
   );
 
+  // Add a function to clear history
+  const clearHistory = () => {
+    setMessages([getWelcomeMessage(userName, 'general')]);
+    setTopics([{
+      id: 'default',
+      name: 'General Math Help',
+      category: 'general',
+      lastActive: new Date(),
+      messageCount: 0,
+      isBookmarked: false,
+      difficulty: 'beginner'
+    }]);
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem('math_gpt_topics');
+  };
+
+  // Call clearHistory when the user logs out or re-enters
+  useEffect(() => {
+    if (!userName) {
+      clearHistory();
+    }
+  }, [userName]);
+
   return (
     <ErrorBoundary>
       <Box
