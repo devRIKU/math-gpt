@@ -409,14 +409,9 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
     } catch (error) {
       console.error('Error saving chat history:', error);
-      // If we hit storage quota, try to save only the last N messages
       if (error instanceof Error && error.name === 'QuotaExceededError') {
-        try {
-          const lastMessages = messages.slice(-50); // Keep last 50 messages
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(lastMessages));
-        } catch (retryError) {
-          console.error('Failed to save even reduced chat history:', retryError);
-        }
+        const lastMessages = messages.slice(-50); // Keep last 50 messages
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(lastMessages));
       }
     }
   }, [messages]);
