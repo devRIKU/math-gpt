@@ -49,7 +49,7 @@ import 'highlight.js/styles/github-dark.css';
 import TypingIndicator from './TypingIndicator';
 import { alpha } from '@mui/material/styles';
 import { Components } from 'react-markdown';
-import { ComponentPropsWithoutRef } from 'react';
+import type { ComponentPropsWithoutRef } from 'react';
 
 interface Topic {
   id: string;
@@ -178,28 +178,31 @@ const loadChatHistory = (userName: string): Message[] => {
   }
 };
 
-// Update the component prop types to match react-markdown's expected types
-type CodeComponentProps = ComponentPropsWithoutRef<'code'> & {
-  inline?: boolean;
-  className?: string;
-  node?: any;
+// Define proper types for markdown components
+type MarkdownHeadingProps = ComponentPropsWithoutRef<'h1'> & {
+  level?: number;
+  ordered?: boolean;
 };
 
-type ParagraphComponentProps = ComponentPropsWithoutRef<'p'>;
-type ListComponentProps = ComponentPropsWithoutRef<'ul'>;
-type OrderedListComponentProps = ComponentPropsWithoutRef<'ol'>;
+type MarkdownParagraphProps = ComponentPropsWithoutRef<'p'> & {
+  ordered?: boolean;
+};
 
-// Add these type definitions at the top with other interfaces
-type MarkdownComponentProps = {
-  children: React.ReactNode;
-  className?: string;
-  node?: any;
+type MarkdownListProps = ComponentPropsWithoutRef<'ul'> & {
+  ordered?: boolean;
+  depth?: number;
+};
+
+type MarkdownCodeProps = ComponentPropsWithoutRef<'code'> & {
   inline?: boolean;
+  className?: string;
+  node?: any;  // Add node prop for react-markdown compatibility
 };
 
 const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: React.MouseEvent) => void, isStepByStep: boolean): Components => {
   return useMemo(() => ({
-    code: ({ inline, className, children, ...props }: CodeComponentProps) => {
+    code: function Code(props: MarkdownCodeProps) {
+      const { node, inline, className, children, ...rest } = props;
       const match = /language-(\w+)/.exec(className || '');
       const language = match ? match[1] : '';
       const code = String(children).replace(/\n$/, '');
@@ -214,7 +217,7 @@ const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: 
               borderRadius: '4px',
               fontFamily: 'monospace',
             }}
-            {...props}
+            {...rest}
           >
             {children}
           </code>
@@ -253,7 +256,7 @@ const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: 
                 {language}
               </Typography>
             )}
-            <code className={className} {...props}>
+            <code className={className} {...rest}>
               {code}
             </code>
             <Tooltip title="Copy code">
@@ -280,7 +283,8 @@ const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: 
         </Box>
       );
     },
-    p: ({ children, ...props }: ParagraphComponentProps) => {
+    p: function Paragraph(props: MarkdownParagraphProps) {
+      const { children, ...rest } = props;
       const content = String(children);
       // Check if the paragraph contains a math equation
       if (content.includes('$') || content.includes('\\[') || content.includes('\\(')) {
@@ -293,7 +297,7 @@ const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: 
               borderRadius: 1,
               overflowX: 'auto',
             }}
-            {...props}
+            {...rest}
           >
             {children}
           </Box>
@@ -310,7 +314,7 @@ const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: 
               borderRadius: 1,
               fontFamily: 'Roboto Mono, monospace',
             }}
-            {...props}
+            {...rest}
           >
             {children}
           </Box>
@@ -319,6 +323,7 @@ const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: 
       return (
         <Typography
           variant="body1"
+          component="p"
           sx={{
             color: 'text.primary',
             whiteSpace: 'pre-wrap',
@@ -330,44 +335,50 @@ const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: 
               ml: 1,
             }),
           }}
-          {...props}
+          {...rest}
         >
           {children}
         </Typography>
       );
     },
-    ul: ({ children, ...props }: ListComponentProps) => (
-      <Box
-        component="ul"
-        sx={{
-          pl: 3,
-          mb: 2,
-          '& li': {
-            mb: 1,
-            color: 'text.primary',
-          },
-        }}
-        {...props}
-      >
-        {children}
-      </Box>
-    ),
-    ol: ({ children, ...props }: OrderedListComponentProps) => (
-      <Box
-        component="ol"
-        sx={{
-          pl: 3,
-          mb: 2,
-          '& li': {
-            mb: 1,
-            color: 'text.primary',
-          },
-        }}
-        {...props}
-      >
-        {children}
-      </Box>
-    ),
+    ul: function UnorderedList(props: MarkdownListProps) {
+      const { children, ...rest } = props;
+      return (
+        <Box
+          component="ul"
+          sx={{
+            pl: 3,
+            mb: 2,
+            '& li': {
+              mb: 1,
+              color: 'text.primary',
+            },
+          }}
+          {...rest}
+        >
+          {children}
+        </Box>
+      );
+    },
+    ol: function OrderedList(props: MarkdownListProps) {
+      const { children, ...rest } = props;
+      return (
+        <Box
+          component="ol"
+          sx={{
+            pl: 3,
+            mb: 2,
+            '& li': {
+              mb: 1,
+              color: 'text.primary',
+            },
+          }}
+          {...rest}
+        >
+          {children}
+        </Box>
+      );
+    },
   }), [theme, handleCopy, isStepByStep]);
 };
 
@@ -535,13 +546,14 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
     if (message.id === 'welcome') {
       const markdownComponents: Components = {
         ...useMarkdownComponents(theme, handleCopy, false),
-        h1: (props: MarkdownComponentProps) => {
-          const { children, className } = props;
+        h1: function Heading1(props: MarkdownHeadingProps) {
+          const { children, className, ...rest } = props;
           return (
             <Typography
               component="h1"
               variant="h3"
               className={className}
+              {...rest}
               sx={{
                 fontWeight: 600,
                 mb: 3,
@@ -556,13 +568,14 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
             </Typography>
           );
         },
-        h2: (props: MarkdownComponentProps) => {
-          const { children, className } = props;
+        h2: function Heading2(props: MarkdownHeadingProps) {
+          const { children, className, ...rest } = props;
           return (
             <Typography
               component="h2"
               variant="h5"
               className={className}
+              {...rest}
               sx={{
                 fontWeight: 500,
                 mb: 2,
@@ -574,13 +587,14 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
             </Typography>
           );
         },
-        p: (props: MarkdownComponentProps) => {
-          const { children, className } = props;
+        p: function Paragraph(props: MarkdownParagraphProps) {
+          const { children, className, ...rest } = props;
           return (
             <Typography
               component="p"
               variant="body1"
               className={className}
+              {...rest}
               sx={{
                 color: 'text.secondary',
                 mb: 2,
@@ -592,12 +606,13 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
             </Typography>
           );
         },
-        ul: (props: MarkdownComponentProps) => {
-          const { children, className } = props;
+        ul: function UnorderedList(props: MarkdownListProps) {
+          const { children, className, ...rest } = props;
           return (
             <Box
               component="ul"
               className={className}
+              {...rest}
               sx={{
                 listStyle: 'none',
                 p: 0,
