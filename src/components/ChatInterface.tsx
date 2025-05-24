@@ -470,14 +470,17 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
       content: input.trim(),
       sender: 'user',
       timestamp: new Date(),
+      topicId: currentTopic,
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setIsLoading(true);
-    setIsTyping(true);
-
     try {
+      setInput('');
+      setIsLoading(true);
+      setIsTyping(true);
+      
+      // Add user message first
+      setMessages(prev => [...prev, userMessage]);
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: {
@@ -485,33 +488,44 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
         },
         body: JSON.stringify({ 
           prompt: input.trim(),
-          include_history: true
+          include_history: true,
+          topicId: currentTopic
         }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to get response from server');
+        throw new Error(`Server error: ${response.status}`);
       }
 
       const data = await response.json();
       
+      if (!data?.response) {
+        throw new Error('Invalid response from server');
+      }
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: data.response || 'Sorry, I encountered an error processing your request.',
+        content: data.response,
         sender: 'ai',
         timestamp: new Date(),
+        topicId: currentTopic,
       };
 
+      // Add AI message
       setMessages(prev => [...prev, aiMessage]);
+
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Error in chat:', error);
       
+      // Add error message
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: error instanceof Error ? error.message : 'Sorry, I encountered an error. Please try again.',
+        content: error instanceof Error 
+          ? `Sorry, I encountered an error: ${error.message}`
+          : 'Sorry, I encountered an error. Please try again.',
         sender: 'ai',
         timestamp: new Date(),
+        topicId: currentTopic,
       };
 
       setMessages(prev => [...prev, errorMessage]);
@@ -527,6 +541,17 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
   };
 
   const renderMessageContent = (message: Message) => {
+    // Basic validation
+    if (!message?.content) {
+      console.error('Invalid message:', message);
+      return (
+        <Typography variant="body1" color="error">
+          Invalid message format
+        </Typography>
+      );
+    }
+
+    // User messages are simple text
     if (message.sender === 'user') {
       return (
         <Typography
@@ -542,114 +567,17 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
       );
     }
 
-    // Special styling for welcome message
+    // Welcome message with simpler styling
     if (message.id === 'welcome') {
-      const markdownComponents: Components = {
-        ...useMarkdownComponents(theme, handleCopy, false),
-        h1: function Heading1(props: MarkdownHeadingProps) {
-          const { children, className, ...rest } = props;
-          return (
-            <Typography
-              component="h1"
-              variant="h3"
-              className={className}
-              {...rest}
-              sx={{
-                fontWeight: 600,
-                mb: 3,
-                background: 'linear-gradient(45deg, #6750A4 30%, #625B71 90%)',
-                backgroundClip: 'text',
-                WebkitBackgroundClip: 'text',
-                color: 'transparent',
-                fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
-              }}
-            >
-              {children}
-            </Typography>
-          );
-        },
-        h2: function Heading2(props: MarkdownHeadingProps) {
-          const { children, className, ...rest } = props;
-          return (
-            <Typography
-              component="h2"
-              variant="h5"
-              className={className}
-              {...rest}
-              sx={{
-                fontWeight: 500,
-                mb: 2,
-                color: 'text.secondary',
-                fontSize: { xs: '1.1rem', sm: '1.25rem' },
-              }}
-            >
-              {children}
-            </Typography>
-          );
-        },
-        p: function Paragraph(props: MarkdownParagraphProps) {
-          const { children, className, ...rest } = props;
-          return (
-            <Typography
-              component="p"
-              variant="body1"
-              className={className}
-              {...rest}
-              sx={{
-                color: 'text.secondary',
-                mb: 2,
-                fontSize: { xs: '1rem', sm: '1.1rem' },
-                maxWidth: '600px',
-              }}
-            >
-              {children}
-            </Typography>
-          );
-        },
-        ul: function UnorderedList(props: MarkdownListProps) {
-          const { children, className, ...rest } = props;
-          return (
-            <Box
-              component="ul"
-              className={className}
-              {...rest}
-              sx={{
-                listStyle: 'none',
-                p: 0,
-                m: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 2,
-                maxWidth: '600px',
-                '& li': {
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1,
-                  color: 'text.secondary',
-                  fontSize: { xs: '1rem', sm: '1.1rem' },
-                  '&::before': {
-                    content: '"•"',
-                    color: 'primary.main',
-                    fontSize: '1.5rem',
-                  },
-                },
-              }}
-            >
-              {children}
-            </Box>
-          );
-        },
-      };
-
       return (
         <Box
           sx={{
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            textAlign: 'center',
-            maxWidth: '800px',
-            mx: 'auto',
+            justifyContent: 'center',
+            minHeight: { xs: '60vh', sm: '70vh' },
+            width: '100%',
             py: 4,
             px: 2,
           }}
@@ -657,7 +585,7 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkMath]}
             rehypePlugins={[rehypeRaw, rehypeHighlight, rehypeKatex]}
-            components={markdownComponents}
+            components={useMarkdownComponents(theme, handleCopy, false)}
           >
             {message.content}
           </ReactMarkdown>
@@ -665,22 +593,38 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
       );
     }
 
-    const isStepByStepMessage = message.content.includes('step-by-step solution') || 
-                               message.content.includes('Here\'s the step-by-step solution');
+    // Regular AI messages with fallback
+    try {
+      const isStepByStepMessage = message.content.includes('step-by-step solution') || 
+                                 message.content.includes('Here\'s the step-by-step solution');
 
-    const components = useMarkdownComponents(theme, handleCopy, isStepByStepMessage);
-
-    return (
-      <Box sx={{ position: 'relative' }}>
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkMath]}
-          rehypePlugins={[rehypeRaw, rehypeHighlight, rehypeKatex]}
-          components={components}
+      return (
+        <Box sx={{ position: 'relative' }}>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[rehypeRaw, rehypeHighlight, rehypeKatex]}
+            components={useMarkdownComponents(theme, handleCopy, isStepByStepMessage)}
+          >
+            {message.content}
+          </ReactMarkdown>
+        </Box>
+      );
+    } catch (error) {
+      console.error('Error rendering message:', error);
+      // Fallback to plain text if markdown rendering fails
+      return (
+        <Typography
+          variant="body1"
+          sx={{
+            color: 'text.primary',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
         >
           {message.content}
-        </ReactMarkdown>
-      </Box>
-    );
+        </Typography>
+      );
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
