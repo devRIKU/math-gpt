@@ -37,6 +37,7 @@ import {
   Science as ScienceIcon,
   Calculate as CalculateIcon,
   Timeline as TimelineIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -382,25 +383,76 @@ const useMarkdownComponents = (theme: any, handleCopy: (content: string, event: 
   }), [theme, handleCopy, isStepByStep]);
 };
 
+// Simple error boundary component
+class ChatErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.error('Chat Error:', error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Box sx={{ p: 3, textAlign: 'center' }}>
+          <Typography variant="h6" color="error" gutterBottom>
+            Something went wrong
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => window.location.reload()}
+            startIcon={<RefreshIcon />}
+          >
+            Reload Page
+          </Button>
+        </Box>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// Add a helper function at the top of the file after TOPIC_CATEGORIES definition
+const getTopicCategory = (category: string | undefined): keyof typeof TOPIC_CATEGORIES => {
+  if (category && category in TOPIC_CATEGORIES) {
+    return category as keyof typeof TOPIC_CATEGORIES;
+  }
+  return 'general';
+};
+
 export default function ChatInterface({ userName, onNewChat, onMessageCountChange }: ChatInterfaceProps) {
-  const [messages, setMessages] = useState<Message[]>(() => loadChatHistory(userName));
-  const [input, setInput] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isTyping, setIsTyping] = useState(false);
-  const [showNewChatDialog, setShowNewChatDialog] = useState(false);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  // Initialize state with default values
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      return loadChatHistory(userName);
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+      return [getWelcomeMessage(userName, 'general')];
+    }
+  });
+
   const [topics, setTopics] = useState<Topic[]>(() => {
-    const savedTopics = localStorage.getItem('math_gpt_topics');
-    if (savedTopics) {
-      try {
+    try {
+      const savedTopics = localStorage.getItem('math_gpt_topics');
+      if (savedTopics) {
         const parsed = JSON.parse(savedTopics);
         return parsed.map((topic: any) => ({
           ...topic,
           lastActive: new Date(topic.lastActive)
         }));
-      } catch (e) {
-        console.error('Error parsing saved topics:', e);
       }
+    } catch (error) {
+      console.error('Error loading topics:', error);
     }
     return [{
       id: 'default',
@@ -412,6 +464,13 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
       difficulty: 'beginner'
     }];
   });
+
+  // Rest of your state declarations
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [showNewChatDialog, setShowNewChatDialog] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [currentTopic, setCurrentTopic] = useState<string>('default');
   const [expandedCategory, setExpandedCategory] = useState<string | null>('other');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -844,239 +903,243 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
   );
 
   return (
-    <Box sx={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100vh',
-      bgcolor: 'background.default',
-      position: 'relative',
-      overflow: 'hidden',
-    }}>
-      {/* Header */}
-      <Box sx={{
-        p: { xs: 1, sm: 2 },
-        borderBottom: 1,
-        borderColor: 'divider',
-        bgcolor: 'background.paper',
-        display: 'flex',
-        flexDirection: { xs: 'column', sm: 'row' },
-        justifyContent: 'space-between',
-        alignItems: { xs: 'flex-start', sm: 'center' },
-        gap: { xs: 1, sm: 0 },
-        position: 'sticky',
-        top: 0,
-        left: 0,
-        right: 0,
-        zIndex: 2,
-      }}>
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: 2,
-          width: { xs: '100%', sm: 'auto' }
-        }}>
-          <IconButton
-            onClick={() => setIsDrawerOpen(true)}
-            sx={{ color: 'text.primary' }}
-          >
-            <SchoolIcon />
-          </IconButton>
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              {topics.find(t => t.id === currentTopic)?.name || 'Math GPT'}
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
-              {TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].description}
-            </Typography>
-          </Box>
-          <Chip
-            label={TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].label}
-            size="small"
-            icon={TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].icon}
-            sx={{ 
-              ml: 1,
-              bgcolor: alpha(TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].color, 0.1),
-              color: TOPIC_CATEGORIES[topics.find(t => t.id === currentTopic)?.category || 'general'].color,
-              '& .MuiChip-icon': {
-                color: 'inherit',
-              },
-            }}
-          />
-        </Box>
-        <Button
-          variant="outlined"
-          startIcon={<AddIcon />}
-          onClick={handleNewChat}
-          sx={{
-            borderRadius: 2,
-            textTransform: 'none',
-            width: { xs: '100%', sm: 'auto' }
-          }}
-        >
-          New Chat
-        </Button>
-      </Box>
-
-      {renderSidebar()}
-
-      {/* Chat container */}
-      <Box sx={{
-        flexGrow: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 2,
-        overflowY: 'auto',
-        p: { xs: 1, sm: 2 },
-        pb: { xs: 7, sm: 8 },
-      }}>
-        {messages.map((message) => (
-          <Fade in={true} key={message.id}>
-            <Box sx={{
-              display: 'flex',
-              justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
-              gap: 1,
-              width: '100%',
-            }}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: { xs: 1.5, sm: 2 },
-                  maxWidth: { xs: '90%', sm: '80%' },
-                  borderRadius: 2,
-                  position: 'relative',
-                  background: message.sender === 'user'
-                    ? 'linear-gradient(45deg, #6750A4 30%, #625B71 90%)'
-                    : theme.palette.mode === 'dark'
-                      ? 'linear-gradient(145deg, #2D2B32 0%, #1C1B1F 100%)'
-                      : 'linear-gradient(145deg, #F5F5F5 0%, #FFFFFF 100%)',
-                  border: `1px solid ${theme.palette.divider}`,
-                  whiteSpace: 'pre-wrap',
-                }}
-              >
-                {renderMessageContent(message)}
-              </Paper>
-            </Box>
-          </Fade>
-        ))}
-        {isTyping && (
-          <Fade in={true}>
-            <Box sx={{ alignSelf: 'flex-start' }}>
-              <Paper
-                elevation={0}
-                sx={{
-                  p: 0,
-                  borderRadius: 2,
-                  background: theme.palette.mode === 'dark'
-                    ? 'linear-gradient(145deg, #2D2B32 0%, #1C1B1F 100%)'
-                    : 'linear-gradient(145deg, #F5F5F5 0%, #FFFFFF 100%)',
-                  border: `1px solid ${theme.palette.divider}`,
-                }}
-              >
-                <TypingIndicator />
-              </Paper>
-            </Box>
-          </Fade>
-        )}
-        <div ref={messagesEndRef} />
-      </Box>
-
-      {/* Input box */}
+    <ChatErrorBoundary>
       <Box
-        component="form"
-        onSubmit={handleSubmit}
         sx={{
-          p: { xs: 1, sm: 2 },
-          borderTop: 1,
-          borderColor: 'divider',
-          bgcolor: 'background.paper',
-          position: 'sticky',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          zIndex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100vh',
+          bgcolor: 'background.default',
+          position: 'relative',
+          overflow: 'hidden',
         }}
       >
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-          <Box sx={{ display: 'flex', gap: 1, flexGrow: 1, alignItems: 'flex-start' }}>
-            <TextField
-              fullWidth
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyPress}
-              placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
-              variant="outlined"
-              disabled={isLoading}
-              multiline
-              maxRows={4}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
+        {/* Header */}
+        <Box sx={{
+          p: { xs: 1, sm: 2 },
+          borderBottom: 1,
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          display: 'flex',
+          flexDirection: { xs: 'column', sm: 'row' },
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', sm: 'center' },
+          gap: { xs: 1, sm: 0 },
+          position: 'sticky',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 2,
+        }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 2,
+            width: { xs: '100%', sm: 'auto' }
+          }}>
+            <IconButton
+              onClick={() => setIsDrawerOpen(true)}
+              sx={{ color: 'text.primary' }}
+            >
+              <SchoolIcon />
+            </IconButton>
+            <Box sx={{ flexGrow: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                {topics.find(t => t.id === currentTopic)?.name || 'Math GPT'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
+                {TOPIC_CATEGORIES[getTopicCategory(topics.find(t => t.id === currentTopic)?.category)].description}
+              </Typography>
+            </Box>
+            <Chip
+              label={TOPIC_CATEGORIES[getTopicCategory(topics.find(t => t.id === currentTopic)?.category)].label}
+              size="small"
+              icon={TOPIC_CATEGORIES[getTopicCategory(topics.find(t => t.id === currentTopic)?.category)].icon}
+              sx={{ 
+                ml: 1,
+                bgcolor: alpha(TOPIC_CATEGORIES[getTopicCategory(topics.find(t => t.id === currentTopic)?.category)].color, 0.1),
+                color: TOPIC_CATEGORIES[getTopicCategory(topics.find(t => t.id === currentTopic)?.category)].color,
+                '& .MuiChip-icon': {
+                  color: 'inherit',
                 },
               }}
             />
-            <IconButton
-              type="submit"
-              color="primary"
-              disabled={!input.trim() || isLoading}
-              sx={{
-                borderRadius: 2,
-                height: 40,
-                width: 40,
-                mt: 0.5,
-                '&:hover': {
-                  transform: 'scale(1.1)',
-                },
-              }}
-            >
-              {isLoading ? <CircularProgress size={20} /> : <SendIcon />}
-            </IconButton>
           </Box>
-          <Tooltip title="Math equation help">
-            <IconButton
-              onClick={() => {
-                const helpText = `Math equation help:
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={handleNewChat}
+            sx={{
+              borderRadius: 2,
+              textTransform: 'none',
+              width: { xs: '100%', sm: 'auto' }
+            }}
+          >
+            New Chat
+          </Button>
+        </Box>
+
+        {renderSidebar()}
+
+        {/* Chat container */}
+        <Box sx={{
+          flexGrow: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
+          overflowY: 'auto',
+          p: { xs: 1, sm: 2 },
+          pb: { xs: 7, sm: 8 },
+        }}>
+          {messages.map((message) => (
+            <Fade in={true} key={message.id}>
+              <Box sx={{
+                display: 'flex',
+                justifyContent: message.sender === 'user' ? 'flex-end' : 'flex-start',
+                gap: 1,
+                width: '100%',
+              }}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 1.5, sm: 2 },
+                    maxWidth: { xs: '90%', sm: '80%' },
+                    borderRadius: 2,
+                    position: 'relative',
+                    background: message.sender === 'user'
+                      ? 'linear-gradient(45deg, #6750A4 30%, #625B71 90%)'
+                      : theme.palette.mode === 'dark'
+                        ? 'linear-gradient(145deg, #2D2B32 0%, #1C1B1F 100%)'
+                        : 'linear-gradient(145deg, #F5F5F5 0%, #FFFFFF 100%)',
+                    border: `1px solid ${theme.palette.divider}`,
+                    whiteSpace: 'pre-wrap',
+                  }}
+                >
+                  {renderMessageContent(message)}
+                </Paper>
+              </Box>
+            </Fade>
+          ))}
+          {isTyping && (
+            <Fade in={true}>
+              <Box sx={{ alignSelf: 'flex-start' }}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: 0,
+                    borderRadius: 2,
+                    background: theme.palette.mode === 'dark'
+                      ? 'linear-gradient(145deg, #2D2B32 0%, #1C1B1F 100%)'
+                      : 'linear-gradient(145deg, #F5F5F5 0%, #FFFFFF 100%)',
+                    border: `1px solid ${theme.palette.divider}`,
+                  }}
+                >
+                  <TypingIndicator />
+                </Paper>
+              </Box>
+            </Fade>
+          )}
+          <div ref={messagesEndRef} />
+        </Box>
+
+        {/* Input box */}
+        <Box
+          component="form"
+          onSubmit={handleSubmit}
+          sx={{
+            p: { xs: 1, sm: 2 },
+            borderTop: 1,
+            borderColor: 'divider',
+            bgcolor: 'background.paper',
+            position: 'sticky',
+            bottom: 0,
+            left: 0,
+            right: 0,
+            zIndex: 1,
+          }}
+        >
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+            <Box sx={{ display: 'flex', gap: 1, flexGrow: 1, alignItems: 'flex-start' }}>
+              <TextField
+                fullWidth
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyPress}
+                placeholder="Type your message... (Press Enter to send, Shift+Enter for new line)"
+                variant="outlined"
+                disabled={isLoading}
+                multiline
+                maxRows={4}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                  },
+                }}
+              />
+              <IconButton
+                type="submit"
+                color="primary"
+                disabled={!input.trim() || isLoading}
+                sx={{
+                  borderRadius: 2,
+                  height: 40,
+                  width: 40,
+                  mt: 0.5,
+                  '&:hover': {
+                    transform: 'scale(1.1)',
+                  },
+                }}
+              >
+                {isLoading ? <CircularProgress size={20} /> : <SendIcon />}
+              </IconButton>
+            </Box>
+            <Tooltip title="Math equation help">
+              <IconButton
+                onClick={() => {
+                  const helpText = `Math equation help:
 • Inline math: $x^2 + y^2 = z^2$
 • Display math: $$\\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$$
 • Common symbols: \\alpha, \\beta, \\pi, \\infty
 • Fractions: \\frac{a}{b}
 • Powers: x^2, x^{n+1}
 • Subscripts: x_1, x_{i,j}`;
-                setInput(prev => prev + '\n\n' + helpText);
-              }}
-              sx={{
-                height: 40,
-                width: 40,
-                mt: 0.5,
-                color: 'text.secondary',
-                '&:hover': {
-                  color: 'primary.main',
-                },
-              }}
-            >
-              <FunctionsIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
+                  setInput(prev => prev + '\n\n' + helpText);
+                }}
+                sx={{
+                  height: 40,
+                  width: 40,
+                  mt: 0.5,
+                  color: 'text.secondary',
+                  '&:hover': {
+                    color: 'primary.main',
+                  },
+                }}
+              >
+                <FunctionsIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
         </Box>
-      </Box>
 
-      {/* New Chat Confirmation Dialog */}
-      <Dialog
-        open={showNewChatDialog}
-        onClose={() => setShowNewChatDialog(false)}
-      >
-        <DialogTitle>Start New Chat?</DialogTitle>
-        <DialogContent>
-          <Typography>
-            This will clear your current chat history. Are you sure you want to start a new chat?
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowNewChatDialog(false)}>Cancel</Button>
-          <Button onClick={confirmNewChat} color="primary" variant="contained">
-            Start New Chat
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+        {/* New Chat Confirmation Dialog */}
+        <Dialog
+          open={showNewChatDialog}
+          onClose={() => setShowNewChatDialog(false)}
+        >
+          <DialogTitle>Start New Chat?</DialogTitle>
+          <DialogContent>
+            <Typography>
+              This will clear your current chat history. Are you sure you want to start a new chat?
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowNewChatDialog(false)}>Cancel</Button>
+            <Button onClick={confirmNewChat} color="primary" variant="contained">
+              Start New Chat
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Box>
+    </ChatErrorBoundary>
   );
 } 
