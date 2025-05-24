@@ -17,12 +17,18 @@ import {
   Add as AddIcon,
   DarkMode as DarkModeIcon,
   LightMode as LightModeIcon,
+  Logout as LogoutIcon,
 } from '@mui/icons-material';
 import ChatInterface from './components/ChatInterface';
+import LoginPage from './components/LoginPage';
 
 function App() {
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
   const [mode, setMode] = useState<'light' | 'dark'>(prefersDarkMode ? 'dark' : 'light');
+  const [userName, setUserName] = useState<string | null>(() => {
+    // Try to get the user's name from localStorage
+    return localStorage.getItem('userName');
+  });
 
   const theme = createTheme({
     palette: {
@@ -56,6 +62,25 @@ function App() {
     setMode((prevMode) => (prevMode === 'light' ? 'dark' : 'light'));
   };
 
+  const handleLogin = (name: string) => {
+    setUserName(name);
+    localStorage.setItem('userName', name);
+  };
+
+  const handleLogout = () => {
+    setUserName(null);
+    localStorage.removeItem('userName');
+  };
+
+  if (!userName) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <LoginPage onLogin={handleLogin} />
+      </ThemeProvider>
+    );
+  }
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -86,8 +111,20 @@ function App() {
             >
               Math GPT
             </Typography>
-            <IconButton onClick={toggleColorMode} color="inherit">
+            <Typography
+              variant="subtitle1"
+              sx={{
+                mr: 2,
+                color: 'text.secondary',
+              }}
+            >
+              Welcome, {userName}
+            </Typography>
+            <IconButton onClick={toggleColorMode} color="inherit" sx={{ mr: 1 }}>
               {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+            </IconButton>
+            <IconButton onClick={handleLogout} color="inherit">
+              <LogoutIcon />
             </IconButton>
           </Toolbar>
         </AppBar>
@@ -112,7 +149,7 @@ function App() {
               borderColor: 'divider',
             }}
           >
-            <ChatInterface />
+            <ChatInterface userName={userName} />
           </Paper>
         </Container>
 
