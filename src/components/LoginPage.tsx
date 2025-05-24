@@ -155,7 +155,15 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                   type="submit"
                   variant="contained"
                   size="large"
-                  endIcon={<SendIcon />}
+                  endIcon={
+                    <SendIcon sx={{ 
+                      color: theme.palette.primary.contrastText,
+                      transition: 'transform 0.2s ease-in-out',
+                      '&:hover': {
+                        transform: 'translateX(4px)',
+                      },
+                    }} />
+                  }
                   sx={{
                     mt: 2,
                     py: 1.5,
@@ -163,6 +171,9 @@ export default function LoginPage({ onLogin }: LoginPageProps) {
                     background: 'linear-gradient(45deg, #6750A4 30%, #625B71 90%)',
                     '&:hover': {
                       background: 'linear-gradient(45deg, #7B61D9 30%, #7A7389 90%)',
+                      '& .MuiSvgIcon-root': {
+                        transform: 'translateX(4px)',
+                      },
                     },
                   }}
                 >

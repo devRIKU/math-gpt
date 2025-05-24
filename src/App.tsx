@@ -12,6 +12,7 @@ import {
   Typography,
   IconButton,
   Fab,
+  useTheme,
 } from '@mui/material';
 import { 
   Add as AddIcon,
@@ -25,12 +26,13 @@ import LoginPage from './components/LoginPage';
 function App() {
   const prefersDarkMode = useMediaQuery('(prefers-color-scheme: dark)');
   const [mode, setMode] = useState<'light' | 'dark'>(prefersDarkMode ? 'dark' : 'light');
+  const theme = useTheme();
   const [userName, setUserName] = useState<string | null>(() => {
     // Try to get the user's name from localStorage
     return localStorage.getItem('userName');
   });
 
-  const theme = createTheme({
+  const themeProvider = createTheme({
     palette: {
       mode,
       primary: {
@@ -74,7 +76,7 @@ function App() {
 
   if (!userName) {
     return (
-      <ThemeProvider theme={theme}>
+      <ThemeProvider theme={themeProvider}>
         <CssBaseline />
         <LoginPage onLogin={handleLogin} />
       </ThemeProvider>
@@ -82,7 +84,7 @@ function App() {
   }
 
   return (
-    <ThemeProvider theme={theme}>
+    <ThemeProvider theme={themeProvider}>
       <CssBaseline />
       <Box sx={{ 
         display: 'flex', 
@@ -120,10 +122,31 @@ function App() {
             >
               Welcome, {userName}
             </Typography>
-            <IconButton onClick={toggleColorMode} color="inherit" sx={{ mr: 1 }}>
+            <IconButton 
+              onClick={toggleColorMode} 
+              sx={{ 
+                mr: 1,
+                color: 'text.primary',
+                transition: 'transform 0.2s ease-in-out',
+                '&:hover': {
+                  transform: 'rotate(180deg)',
+                  color: 'primary.main',
+                },
+              }}
+            >
               {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
             </IconButton>
-            <IconButton onClick={handleLogout} color="inherit">
+            <IconButton 
+              onClick={handleLogout}
+              sx={{ 
+                color: 'text.primary',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  transform: 'translateX(4px)',
+                  color: 'error.main',
+                },
+              }}
+            >
               <LogoutIcon />
             </IconButton>
           </Toolbar>
@@ -159,6 +182,16 @@ function App() {
             position: 'fixed',
             bottom: 24,
             right: 24,
+            transition: 'all 0.2s ease-in-out',
+            '&:hover': {
+              transform: 'rotate(90deg) scale(1.1)',
+              '& .MuiSvgIcon-root': {
+                color: theme.palette.primary.contrastText,
+              },
+            },
+            '& .MuiSvgIcon-root': {
+              transition: 'transform 0.2s ease-in-out',
+            },
           }}
           onClick={() => {/* Handle new chat */}}
         >
