@@ -717,7 +717,7 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
             wordBreak: 'break-word',
           }}
         >
-          Error displaying message. Please try again.
+          {`Error displaying message: ${error instanceof Error ? error.message : String(error)}. Please try again.`}
         </Typography>
       );
     }
