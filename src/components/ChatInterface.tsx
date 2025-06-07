@@ -448,6 +448,97 @@ interface Topic {
   difficulty?: 'beginner' | 'intermediate' | 'advanced';
 }
 
+interface ChatMessageContentProps {
+  message: Message;
+  theme: any; // Or use the specific Theme type if available
+  handleCopy: (content: string, event: React.MouseEvent) => void;
+}
+
+const ChatMessageContent: React.FC<ChatMessageContentProps> = ({ message, theme, handleCopy }) => {
+  try {
+    if (!message?.content) {
+      console.error('Invalid message:', message);
+      return (
+        <Typography variant="body1" color="error">
+          Invalid message format
+        </Typography>
+      );
+    }
+
+    if (message.sender === 'user') {
+      return (
+        <Typography
+          variant="body1"
+          sx={{
+            color: 'white',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        >
+          {message.content}
+        </Typography>
+      );
+    }
+
+    if (message.id === 'welcome') {
+      const markdownComponents = useMarkdownComponents(theme, handleCopy, false);
+      return (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: { xs: '60vh', sm: '70vh' },
+            width: '100%',
+            py: 4,
+            px: 2,
+          }}
+        >
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[rehypeRaw, rehypeHighlight, rehypeKatex]}
+            components={markdownComponents}
+          >
+            {message.content}
+          </ReactMarkdown>
+        </Box>
+      );
+    }
+
+    // Regular AI messages
+    const isStepByStepMessage = message.content.includes('step-by-step solution') ||
+                               message.content.includes('Here\'s the step-by-step solution');
+    const markdownComponentsForAi = useMarkdownComponents(theme, handleCopy, isStepByStepMessage);
+
+    return (
+      <Box sx={{ position: 'relative' }}>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[rehypeRaw, rehypeHighlight, rehypeKatex]}
+          components={markdownComponentsForAi}
+        >
+          {message.content}
+        </ReactMarkdown>
+      </Box>
+    );
+  } catch (error) {
+    console.error('Error rendering message:', error);
+    return (
+      <Typography
+        variant="body1"
+        sx={{
+          color: 'error.main',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+        }}
+      >
+        {`Error displaying message: ${error instanceof Error ? error.message : String(error)}. Please try again.`}
+      </Typography>
+    );
+  }
+};
+
 export default function ChatInterface({ userName, onNewChat, onMessageCountChange }: ChatInterfaceProps) {
   // Initialize state with default values
   const [messages, setMessages] = useState<Message[]>(() => {
@@ -636,91 +727,6 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
   const handleCopy = (content: string, event: React.MouseEvent) => {
     event.stopPropagation();
     navigator.clipboard.writeText(content);
-  };
-
-  const renderMessageContent = (message: Message) => {
-    if (!message?.content) {
-      console.error('Invalid message:', message);
-      return (
-        <Typography variant="body1" color="error">
-          Invalid message format
-        </Typography>
-      );
-    }
-
-    try {
-      // User messages are simple text
-      if (message.sender === 'user') {
-        return (
-          <Typography
-            variant="body1"
-            sx={{
-              color: 'white',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word',
-            }}
-          >
-            {message.content}
-          </Typography>
-        );
-      }
-
-      // Welcome message with simpler styling
-      if (message.id === 'welcome') {
-        return (
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: { xs: '60vh', sm: '70vh' },
-              width: '100%',
-              py: 4,
-              px: 2,
-            }}
-          >
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm, remarkMath]}
-              rehypePlugins={[rehypeRaw, rehypeHighlight, rehypeKatex]}
-              components={useMarkdownComponents(theme, handleCopy, false)}
-            >
-              {message.content}
-            </ReactMarkdown>
-          </Box>
-        );
-      }
-
-      // Regular AI messages with fallback
-      const isStepByStepMessage = message.content.includes('step-by-step solution') || 
-                                 message.content.includes('Here\'s the step-by-step solution');
-
-      return (
-        <Box sx={{ position: 'relative' }}>
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath]}
-            rehypePlugins={[rehypeRaw, rehypeHighlight, rehypeKatex]}
-            components={useMarkdownComponents(theme, handleCopy, isStepByStepMessage)}
-          >
-            {message.content}
-          </ReactMarkdown>
-        </Box>
-      );
-    } catch (error) {
-      console.error('Error rendering message:', error);
-      return (
-        <Typography
-          variant="body1"
-          sx={{
-            color: 'error.main',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-          }}
-        >
-          {`Error displaying message: ${error instanceof Error ? error.message : String(error)}. Please try again.`}
-        </Typography>
-      );
-    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -1076,7 +1082,8 @@ export default function ChatInterface({ userName, onNewChat, onMessageCountChang
                     whiteSpace: 'pre-wrap',
                   }}
                 >
-                  {renderMessageContent(message)}
+                  {/* Replace renderMessageContent with ChatMessageContent component */}
+                  <ChatMessageContent message={message} theme={theme} handleCopy={handleCopy} />
                 </Paper>
               </Box>
             </Fade>
